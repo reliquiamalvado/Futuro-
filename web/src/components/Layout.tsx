@@ -77,6 +77,7 @@ export default function Layout() {
     { section: "Casa", to: "/chaves", label: "Chaves temporárias", icon: <KeyRound className="size-5" />, show: manager, mobile: "Chaves" },
     { section: "Casa", to: "/dispositivos", label: "Portões e equipamentos", icon: <Cpu className="size-5" />, show: isAdmin, mobile: "Portões" },
     { section: "Casa", to: "/historico", label: "Acionamentos", icon: <History className="size-5" />, show: true, mobile: manager ? undefined : "Acionamentos" },
+    { section: "Conta", to: "/seguranca", label: "Privacidade e segurança", icon: <ShieldCheck className="size-5" />, show: true },
     { section: "Conta", to: "/conta", label: "Minha conta", icon: <UserCircle2 className="size-5" />, show: true, mobile: "Conta" },
   ];
 
@@ -93,6 +94,7 @@ export default function Layout() {
     { section: "Administração", to: "/auditoria", label: "Auditoria", icon: <ShieldCheck className="size-5" />, show: isAdmin },
     { section: "Administração", to: "/administradores", label: "Administradores", icon: <UserCog className="size-5" />, show: isAdmin },
     { section: "Administração", to: "/organizacoes", label: "Clientes", icon: <Building2 className="size-5" />, show: isSuper, badge: requests },
+    { section: "Conta", to: "/seguranca", label: "Privacidade e segurança", icon: <ShieldCheck className="size-5" />, show: true },
     { section: "Conta", to: "/conta", label: "Minha conta", icon: <UserCircle2 className="size-5" />, show: true, mobile: "Conta" },
   ];
   const visible = (homeOnly ? homeItems : fullItems).filter((i) => i.show);

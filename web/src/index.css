@@ -34,3 +34,29 @@ body {
 /* Cores dos gráficos (validadas para daltonismo, claro e escuro) */
 :root { --chart-ok: #2a78d6; --chart-fail: #d03b3b; --chart-grid: #e5e7eb; }
 .dark { --chart-ok: #3987e5; --chart-fail: #e66767; --chart-grid: #1e2a45; }
+
+/* ---------- Página de apresentação (futurista) ---------- */
+.lp-grid {
+  background-image:
+    linear-gradient(rgba(148,163,184,.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148,163,184,.07) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse at 50% 0%, #000 30%, transparent 75%);
+}
+@keyframes lp-spin { to { transform: rotate(360deg); } }
+.lp-orbit { animation: lp-spin 40s linear infinite; }
+.lp-orbit-rev { animation: lp-spin 28s linear infinite reverse; }
+@keyframes lp-scan { 0% { top: -40px; } 100% { top: 112px; } }
+.lp-scan { animation: lp-scan 2.4s ease-in-out infinite; }
+@keyframes lp-gate { 0%, 35% { transform: translateX(0); opacity: 1; } 55%, 80% { transform: translateX(-70px); opacity: .15; } 100% { transform: translateX(0); opacity: 1; } }
+.lp-gate { animation: lp-gate 6s ease-in-out infinite; }
+@keyframes lp-toast { 0%, 40% { opacity: 0; transform: translateY(4px); } 50%, 85% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+.lp-toast { animation: lp-toast 6s ease-in-out infinite; }
+@keyframes lp-glow { 0%, 100% { box-shadow: 0 0 0 0 rgb(34 211 238 / .45); } 50% { box-shadow: 0 0 0 16px rgb(34 211 238 / 0); } }
+.lp-pulse { animation: lp-glow 2s ease-out infinite; }
+@keyframes lp-blink { 50% { opacity: .35; } }
+.lp-blink { animation: lp-blink 1.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .lp-orbit, .lp-orbit-rev, .lp-scan, .lp-gate, .lp-toast, .lp-pulse, .lp-blink { animation: none; }
+  .lp-toast { opacity: 1; }
+}

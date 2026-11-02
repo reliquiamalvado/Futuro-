@@ -551,4 +551,23 @@ select set_config('request.jwt.claim.sub', :'MOR', false);
 select pg_temp.ok((select (set_gate_pin('7381'))->>'ok' = 'true'), 'morador cria a nova senha (login recente)');
 select pg_temp.ok((select (my_unlock_methods())->>'recuperacoes_restantes' = '1'), 'e ganha de novo 1 chance');
 reset role;
+
+-- ---------- PRIVACIDADE (LGPD) ----------
+set role authenticated;
+select set_config('request.jwt.claim.sub', :'MOR', false);
+select pg_temp.ok((select count(*) >= 1 from my_activity()), 'pessoa vê a própria atividade');
+select set_config('request.jwt.claim.sub', :'EST', false);
+select pg_temp.ok((select count(*) = 0 from my_activity() where action = 'abertura.senha_liberada_admin'), 'ninguém vê a atividade da conta de outra pessoa');
+select set_config('request.jwt.claim.sub', :'MOR', false);
+select pg_temp.ok((select (export_my_data())->'perfil'->>'email' = 'morador@t.com'), 'exportação traz os próprios dados');
+select pg_temp.ok((select (export_my_data())::text not like '%$2%' and (export_my_data())::text not like '%pin_hash%'), 'exportação não traz senhas nem hashes');
+select pg_temp.ok((select (account_deletion_check())->>'ok' = 'true'), 'morador comum pode excluir a conta');
+select set_config('request.jwt.claim.sub', :'ADMIN', false);
+select pg_temp.ok((select (account_deletion_check())->>'ok' = 'false'), 'único administrador com moradores não pode excluir a conta');
+select set_config('request.jwt.claim.sub', :'SUPER', false);
+select pg_temp.ok((select (account_deletion_check())->>'ok' = 'false'), 'super admin não exclui a conta por aqui');
+reset role;
+set role anon;
+select pg_temp.ok(pg_temp.erro($$select export_my_data()$$) is not null, 'anônimo não exporta dados');
+reset role;
 \echo TODOS_OS_TESTES_PASSARAM

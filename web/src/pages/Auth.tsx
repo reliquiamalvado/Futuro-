@@ -9,17 +9,25 @@ import { Logo } from "../components/Layout";
 function Shell({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
   return (
     <div className="flex min-h-screen">
-      <div className="relative hidden flex-1 overflow-hidden bg-ink-900 lg:block">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(47,123,255,.35),transparent_55%),radial-gradient(circle_at_80%_80%,rgba(47,123,255,.15),transparent_50%)]" />
+      <div className="dark relative hidden flex-1 overflow-hidden bg-ink-950 lg:block">
+        <div className="absolute inset-0 lp-grid" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(47,123,255,.35),transparent_55%),radial-gradient(circle_at_80%_85%,rgba(34,211,238,.18),transparent_50%)]" />
         <div className="relative flex h-full flex-col justify-between p-12 text-white">
-          <Logo />
+          <Link to="/bem-vindo"><Logo /></Link>
           <div>
-            <h2 className="max-w-md text-4xl font-semibold leading-tight">Controle de acesso inteligente para portões.</h2>
+            <h2 className="max-w-md text-4xl font-bold leading-tight tracking-tight">
+              Seu portão abre <span className="bg-gradient-to-r from-brand-400 to-cyan-300 bg-clip-text text-transparent">só para você.</span>
+            </h2>
             <p className="mt-4 max-w-md text-slate-300">
-              Residências, condomínios e empresas abrindo portões com segurança, histórico completo e acessos temporários.
+              Abra de qualquer lugar com a sua digital, libere visitas por tempo limitado e veja quem entrou e quando.
             </p>
+            <ul className="mt-8 grid max-w-md gap-2 text-sm text-slate-300">
+              {["Digital, rosto ou senha em toda abertura", "Verificação em duas etapas", "Seus dados nunca são vendidos"].map((t) => (
+                <li key={t} className="flex items-center gap-2"><span className="size-1.5 rounded-full bg-cyan-300" />{t}</li>
+              ))}
+            </ul>
           </div>
-          <p className="text-sm text-slate-400">© {new Date().getFullYear()} AuggeControl</p>
+          <p className="text-sm text-slate-400">© {new Date().getFullYear()} AuggeControl · <Link to="/bem-vindo" className="hover:text-white">Conheça o app</Link></p>
         </div>
       </div>
       <div className="flex flex-1 items-center justify-center px-4 py-10">
