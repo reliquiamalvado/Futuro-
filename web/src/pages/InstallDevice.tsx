@@ -90,15 +90,15 @@ export default function InstallDevicePage() {
       {error && <Alert>{error}</Alert>}
 
       <Step n={1} title="O que comprar" icon={<Cpu className="size-4" />}>
-        <p>A forma mais simples é uma <b>placa ESP32 com relé já integrado</b> (procure por “módulo relé ESP32 1 canal com fonte”).
-          Ela já vem com tudo numa peça só: não precisa de fios entre placas.</p>
+        <p>Kit recomendado: funciona direto, sem solda e sem ajustar nada (as peças só se encaixam com 3 fios).</p>
         <ul className="list-disc space-y-1 pl-5">
-          <li><b>Placa ESP32 com relé</b> (1 canal; 2 canais se forem 2 portões).</li>
-          <li><b>Cabo USB de dados</b> que encaixe na placa (alguns cabos só carregam).</li>
-          <li><b>Fonte</b> conforme a placa: muitas aceitam os 12/24 V da própria central do portão.</li>
+          <li><b>ESP32 DevKit V1</b> (30 ou 38 pinos, com entrada USB).</li>
+          <li><b>Módulo relé 5 V, 1 canal</b> (2 canais se forem 2 portões).</li>
+          <li><b>3 jumpers fêmea-fêmea</b>: VIN → VCC, GND → GND, D26 → IN.</li>
+          <li><b>Cabo USB de dados</b> (alguns cabos só carregam) e um <b>carregador de celular</b> comum.</li>
           <li><b>Caixinha plástica</b> para proteger da chuva.</li>
         </ul>
-        <p className="text-xs text-slate-500">Também funciona com ESP32 DevKit + módulo relé separado (veja o guia técnico do instalador).</p>
+        <p className="text-xs text-slate-500">Placas “ESP32 com relé integrado” também funcionam, mas muitas não têm USB e usam outros pinos — só para técnicos.</p>
       </Step>
 
       <Step n={2} title="Gravar o AuggeControl na placa" icon={<Usb className="size-4" />}>

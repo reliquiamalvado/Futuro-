@@ -7,16 +7,23 @@ Não precisa programar nem instalar nada no computador. Todo o processo é guiad
 
 | Item | Observação | Preço aprox. |
 |---|---|---|
-| **Placa ESP32 com relé integrado** (“módulo relé ESP32 1 canal com fonte”) | 2 canais se forem 2 portões ou abrir/fechar separados. Mais simples: tudo numa peça só | R$ 40–80 |
-| **Cabo USB de dados** | Alguns cabos só carregam — se a placa não aparecer, troque o cabo | — |
-| **Fonte** | Conforme a placa: 5 V USB, ou os 12/24 V da própria central se a placa aceitar | R$ 0–30 |
+| **ESP32 DevKit V1** (30 ou 38 pinos, com USB) | Evite ESP32-CAM e ESP8266 | R$ 35–50 |
+| **Módulo relé 5 V, 1 canal** | 2 canais se forem 2 portões ou abrir/fechar separados | R$ 10–20 |
+| **3 jumpers fêmea-fêmea** | Só encaixam, sem solda: VIN→VCC, GND→GND, D26→IN | R$ 5 |
+| **Cabo USB de dados** + carregador de celular | Alguns cabos só carregam — se a placa não aparecer, troque o cabo | — |
 | **Caixinha plástica** | Para proteger da chuva | R$ 10–20 |
 | *Opcional:* sensor magnético (reed switch) | Mostra no app se o portão está aberto/fechado | R$ 10–15 |
 
 > O Wi-Fi do ESP32 é **2,4 GHz**. Redes só 5 GHz não funcionam.
 
-Alternativa para técnicos: ESP32 DevKit V1 + módulo relé 5 V separado (VIN→VCC, GND→GND,
-GPIO 26→IN1, GPIO 27→IN2).
+Placas “ESP32 com relé integrado” também funcionam, mas muitas não têm USB e usam outros pinos
+(ajuste em “Pinos dos relés” na página de configuração da placa) — só para técnicos.
+
+## Teste em casa, sem portão
+
+Dá para testar tudo antes: grave, pareie e toque em **Acionar** no app. O relé faz um **“clique”**
+e acende um **LED** no módulo; o app mostra **“Comando executado”**. É exatamente o mesmo sinal que,
+depois, o técnico liga na botoeira do portão. Tudo em 5 V do USB, sem risco de choque.
 
 ## 2. Gravar o AuggeControl na placa (2 minutos)
 
