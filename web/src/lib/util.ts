@@ -11,7 +11,8 @@ export function errMsg(e: unknown): string {
   if (m.includes("rate limit")) return "Muitas tentativas. Aguarde alguns minutos.";
   if (m.includes("Failed to fetch")) return "Sem conexão com o servidor.";
   if (m.includes("duplicate key")) return "Já existe um registro com esses dados.";
-  if (m.includes("row-level security") || m.includes("permission denied")) return "Você não tem permissão para isso.";
+  if (m.includes("row-level security") || m.includes("permission denied"))
+    return "Você não tem permissão para isso. Se você é administrador, confira se a verificação em duas etapas está ativa em Minha conta.";
   return m;
 }
 

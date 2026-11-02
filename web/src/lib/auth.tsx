@@ -53,10 +53,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [aal, setAal] = useState<{ current: string | null; next: string | null }>({ current: null, next: null });
 
   const loadUserData = useCallback(async (s: Session | null) => {
+    let strongSession = false;
     if (s) {
       try {
         const { data: lvl } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
         setAal({ current: lvl?.currentLevel ?? null, next: lvl?.nextLevel ?? null });
+        strongSession = lvl?.currentLevel === "aal2";
       } catch {
         setAal({ current: "aal1", next: null });
       }
@@ -114,7 +116,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .map((r) => r.organizations!);
 
     // Super admin administra todas as organizações.
-    if (prof?.is_super_admin) {
+    // Super admin só administra tudo com 2FA na sessão (o banco também exige).
+    if (prof?.is_super_admin && strongSession) {
       const all = await supabase.from("organizations").select("id, name, kind, group_label").order("name");
       orgs = (all.data ?? []) as AdminOrg[];
     }
