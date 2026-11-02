@@ -464,4 +464,31 @@ set role authenticated;
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000e', false);
 select pg_temp.ok((select count(*) = 0 from my_gates()), 'usuário comum continua sem ver portões alheios');
 reset role;
+
+-- ---------- PORTÃO SEM EQUIPAMENTO ----------
+set role authenticated;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000b', false);
+select set_config('request.jwt.claim.aal', 'aal2', false);
+insert into gates (org_id, name) values (:'org_c', 'Portão novo') returning id as gnovo \gset
+select pg_temp.ok(:'gnovo' <> '', 'admin cadastra portão sem equipamento');
+insert into gate_residences values (:'gnovo', :'rc1');
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000d', false);
+select pg_temp.ok((select not online and not can_operate from my_gates() where gate_id = :'gnovo'), 'portão sem equipamento aparece offline e sem acionar');
+reset role;
+insert into gate_pins (user_id, pin_hash) values ('00000000-0000-0000-0000-00000000000d', extensions.crypt('8264', extensions.gen_salt('bf', 4)))
+  on conflict (user_id) do update set pin_hash = excluded.pin_hash, failed = 0, locked_until = null;
+set role authenticated;
+select pg_temp.ok((select (request_gate_command(:'gnovo', 'pulso', '8264'))->>'erro' = 'Este portão ainda não tem equipamento vinculado.'),
+                  'acionar portão sem equipamento dá mensagem clara');
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000b', false);
+update gates set device_id = '00000000-0000-0000-0000-0000000000c1', channel = 2 where id = :'gnovo';
+select pg_temp.ok((select device_id is not null from gates where id = :'gnovo'), 'admin vincula o equipamento depois');
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000f', false);
+select pg_temp.ok(pg_temp.erro(format($$update gates set device_id = null where id = %L$$, :'gnovo')) is not null
+                  or (select count(*) = 0 from gates where id = :'gnovo'), 'admin de outro cliente não mexe no portão');
+reset role;
+delete from devices where id = '00000000-0000-0000-0000-0000000000c1';
+select pg_temp.ok((select count(*) = 2 and bool_and(device_id is null) from gates where id in (:'gnovo', :'gc')),
+                  'excluir equipamento mantém os portões (sem equipamento)');
+select pg_temp.ok((select count(*) >= 1 from commands where gate_id = :'gc'), 'excluir equipamento mantém o histórico de acionamentos');
 \echo TODOS_OS_TESTES_PASSARAM

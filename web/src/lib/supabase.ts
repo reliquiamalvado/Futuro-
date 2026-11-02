@@ -97,7 +97,7 @@ export interface Device {
 export interface Gate {
   id: string;
   org_id: string;
-  device_id: string;
+  device_id: string | null;
   name: string;
   channel: number;
   mode: GateMode;
@@ -113,8 +113,8 @@ export interface MyGate {
   mode: GateMode;
   state: GateState;
   state_updated_at: string | null;
-  device_id: string;
-  device_name: string;
+  device_id: string | null;
+  device_name: string | null;
   online: boolean;
   last_seen_at: string | null;
   org_id: string;

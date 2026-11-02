@@ -180,7 +180,8 @@ export default function Dashboard() {
                 key={g.gate_id}
                 gate={{
                   id: g.gate_id, name: g.gate_name, mode: g.mode, state: g.state, online: g.online,
-                  lastSeen: g.last_seen_at, deviceName: g.device_name, canOperate: g.can_operate,
+                  lastSeen: g.last_seen_at, deviceName: g.device_name ?? undefined, canOperate: g.can_operate,
+                  noDevice: !g.device_id,
                   subtitle: [...new Set([g.residence_name, g.org_name].filter(Boolean))].join(" · "),
                 }}
                 send={(a) => confirmedCommand(g.gate_id, g.gate_name, a)}

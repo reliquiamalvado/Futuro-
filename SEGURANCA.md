@@ -24,7 +24,7 @@
 
 ## Testes
 
-1. **Permissões (local, 131 verificações):** `PGHOST=... PGPORT=... PGUSER=postgres supabase/tests/rodar.sh`
+1. **Permissões (local, 138 verificações):** `PGHOST=... PGPORT=... PGUSER=postgres supabase/tests/rodar.sh`
 2. **Auditoria em produção (38 verificações, não grava nada):** cole `supabase/tests/auditoria_producao.sql`
    no SQL Editor do Supabase e rode. Tudo deve sair ✅.
 3. **Biometria (12 verificações, autenticador virtual):** `supabase/tests/biometria/rodar.sh`

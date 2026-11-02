@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Activity, Cpu, KeyRound, Pencil, Plus, Power, RefreshCw, Trash2, Wifi, WifiOff } from "lucide-react";
+import { Activity, DoorClosed, KeyRound, Link2, Pencil, Plus, Power, RefreshCw, Trash2, Wifi, WifiOff } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import {
   DEVICE_API_URL, isOnline, supabase, type Command, type Device, type DeviceDriver, type Gate, type GateMode,
@@ -24,7 +24,7 @@ export default function DevicesPage() {
 
   const [creating, setCreating] = useState(false);
   const [credentials, setCredentials] = useState<{ device_id: string; secret: string; name: string } | null>(null);
-  const [gateEdit, setGateEdit] = useState<{ device: Device; gate?: Gate } | null>(null);
+  const [gateEdit, setGateEdit] = useState<{ deviceId: string | null; gate?: Gate } | null>(null);
   const [devEdit, setDevEdit] = useState<Device | null>(null);
   const [diag, setDiag] = useState<Device | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -44,7 +44,10 @@ export default function DevicesPage() {
       <PageHeader
         title="Portões e dispositivos"
         subtitle="Equipamentos instalados, portões controlados por eles e monitoramento online/offline."
-        actions={<Button onClick={() => setCreating(true)}><Plus className="size-4" /> Novo dispositivo</Button>}
+        actions={<>
+          <Button variant="secondary" onClick={() => setGateEdit({ deviceId: null })}><DoorClosed className="size-4" /> Novo portão</Button>
+          <Button onClick={() => setCreating(true)}><Plus className="size-4" /> Novo dispositivo</Button>
+        </>}
       />
       {adminOrgs.length > 1 && (
         <Select className="mb-4 max-w-xs" value={org} onChange={(e) => setOrgId(e.target.value)}>
@@ -53,13 +56,36 @@ export default function DevicesPage() {
       )}
       {error && <div className="mb-4"><Alert>{error}</Alert></div>}
 
-      {devices.loading ? <Loading /> : !devices.data?.length ? (
-        <Empty icon={<Cpu className="size-8" />} title="Nenhum dispositivo cadastrado">
-          Cadastre o equipamento instalado no portão. Você receberá as credenciais para configurar o firmware.
+      {devices.loading || gates.loading ? <Loading /> : !devices.data?.length && !gates.data?.length ? (
+        <Empty icon={<DoorClosed className="size-8" />} title="Nenhum portão ou dispositivo cadastrado">
+          <p>Você pode cadastrar os portões agora e vincular o equipamento (ESP32) depois, ou começar pelo equipamento.</p>
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
+            <Button variant="secondary" onClick={() => setGateEdit({ deviceId: null })}><DoorClosed className="size-4" /> Cadastrar portão</Button>
+            <Button onClick={() => setCreating(true)}><Plus className="size-4" /> Cadastrar dispositivo</Button>
+          </div>
         </Empty>
       ) : (
+        <>
+        {(gates.data ?? []).some((g) => !g.device_id) && (
+          <Card className="mb-4 ring-amber-300 dark:ring-amber-500/40">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="flex items-center gap-2 text-sm font-semibold"><DoorClosed className="size-4 text-amber-500" /> Portões sem equipamento</span>
+              <Badge tone="amber">Não podem ser acionados ainda</Badge>
+            </div>
+            <ul className="divide-y divide-slate-100 dark:divide-ink-800">
+              {(gates.data ?? []).filter((g) => !g.device_id).map((g) => (
+                <li key={g.id} className="flex items-center justify-between py-2 text-sm">
+                  <span className="font-medium">{g.name}</span>
+                  <Button size="sm" variant="secondary" onClick={() => setGateEdit({ deviceId: null, gate: g })}>
+                    <Link2 className="size-4" /> {devices.data?.length ? "Vincular equipamento" : "Editar"}
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
         <div className="space-y-4">
-          {devices.data.map((d) => {
+          {(devices.data ?? []).map((d) => {
             const online = isOnline(d.last_seen_at);
             const dg = (gates.data ?? []).filter((g) => g.device_id === d.id);
             const driver = drivers.data?.find((x) => x.id === d.driver_id);
@@ -95,7 +121,7 @@ export default function DevicesPage() {
                 <div className="mt-4 border-t border-slate-100 pt-4 dark:border-ink-800">
                   <div className="mb-2 flex items-center justify-between">
                     <span className="text-sm font-medium">Portões</span>
-                    <Button size="sm" variant="secondary" onClick={() => setGateEdit({ device: d })}><Plus className="size-4" /> Portão</Button>
+                    <Button size="sm" variant="secondary" onClick={() => setGateEdit({ deviceId: d.id })}><Plus className="size-4" /> Portão</Button>
                   </div>
                   {dg.length === 0 ? <p className="text-sm text-slate-500">Nenhum portão neste dispositivo.</p> : (
                     <ul className="divide-y divide-slate-100 dark:divide-ink-800">
@@ -108,7 +134,7 @@ export default function DevicesPage() {
                             </span>
                             {!g.active && <Badge tone="red">Desativado</Badge>}
                           </div>
-                          <Button size="sm" variant="ghost" onClick={() => setGateEdit({ device: d, gate: g })}><Pencil className="size-4" /></Button>
+                          <Button size="sm" variant="ghost" onClick={() => setGateEdit({ deviceId: d.id, gate: g })}><Pencil className="size-4" /></Button>
                         </li>
                       ))}
                     </ul>
@@ -118,6 +144,7 @@ export default function DevicesPage() {
             );
           })}
         </div>
+        </>
       )}
 
       {creating && (
@@ -126,8 +153,8 @@ export default function DevicesPage() {
       )}
       {credentials && <CredentialsModal c={credentials} onClose={() => setCredentials(null)} />}
       {gateEdit && (
-        <GateModal orgId={org} device={gateEdit.device} gate={gateEdit.gate}
-          driver={drivers.data?.find((x) => x.id === gateEdit.device.driver_id)}
+        <GateModal orgId={org} deviceId={gateEdit.deviceId} gate={gateEdit.gate}
+          devices={devices.data ?? []} drivers={drivers.data ?? []}
           onClose={() => setGateEdit(null)} onSaved={() => { setGateEdit(null); gates.reload(true); }} />
       )}
       {devEdit && <EditDeviceModal d={devEdit} onClose={() => setDevEdit(null)} onSaved={() => { setDevEdit(null); devices.reload(true); gates.reload(true); }} />}
@@ -210,9 +237,13 @@ function CredentialsModal({ c, onClose }: { c: { device_id: string; secret: stri
   );
 }
 
-function GateModal({ orgId, device, gate, driver, onClose, onSaved }: {
-  orgId: string; device: Device; gate?: Gate; driver?: DeviceDriver; onClose: () => void; onSaved: () => void;
+function GateModal({ orgId, deviceId, gate, devices, drivers, onClose, onSaved }: {
+  orgId: string; deviceId: string | null; gate?: Gate; devices: Device[]; drivers: DeviceDriver[];
+  onClose: () => void; onSaved: () => void;
 }) {
+  const [dev, setDev] = useState<string>(gate?.device_id ?? deviceId ?? "");
+  const device = devices.find((d) => d.id === dev);
+  const driver = drivers.find((x) => x.id === device?.driver_id);
   const [name, setName] = useState(gate?.name ?? "");
   const [channel, setChannel] = useState(gate?.channel ?? 1);
   const [mode, setMode] = useState<GateMode>(gate?.mode ?? "pulso");
@@ -226,13 +257,13 @@ function GateModal({ orgId, device, gate, driver, onClose, onSaved }: {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    const row = { name: name.trim(), channel, mode, pulse_ms: pulse, active };
+    const row = { name: name.trim(), channel, mode, pulse_ms: pulse, active, device_id: dev || null };
     const { error } = gate
       ? await supabase.from("gates").update(row).eq("id", gate.id)
-      : await supabase.from("gates").insert({ ...row, org_id: orgId, device_id: device.id });
+      : await supabase.from("gates").insert({ ...row, org_id: orgId });
     setLoading(false);
     if (error) return setError(errMsg(error).includes("duplicate") || errMsg(error).includes("Já existe")
-      ? `O relé ${channel} já está em uso neste dispositivo.` : errMsg(error));
+      ? `O relé ${channel} já está em uso em ${device?.name ?? "este dispositivo"}.` : errMsg(error));
     onSaved();
   }
 
@@ -244,10 +275,17 @@ function GateModal({ orgId, device, gate, driver, onClose, onSaved }: {
   }
 
   return (
-    <Modal open onClose={onClose} title={gate ? "Editar portão" : `Novo portão em ${device.name}`}>
+    <Modal open onClose={onClose} title={gate ? "Editar portão" : "Novo portão"}>
       <form onSubmit={submit} className="space-y-4">
         <Field label="Nome do portão" hint="Ex.: Portão social, Garagem, Pedestres">
           <Input required value={name} onChange={(e) => setName(e.target.value)} />
+        </Field>
+        <Field label="Equipamento que aciona este portão"
+          hint={dev ? undefined : "O portão fica salvo e aparece no app como \"sem equipamento\" até você vincular um."}>
+          <Select value={dev} onChange={(e) => setDev(e.target.value)}>
+            <option value="">Sem equipamento (vincular depois)</option>
+            {devices.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+          </Select>
         </Field>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Relé / canal">

@@ -15,6 +15,8 @@ export interface GateView {
   subtitle?: string | null;
   deviceName?: string;
   canOperate: boolean;
+  /** Portão cadastrado sem equipamento vinculado. */
+  noDevice?: boolean;
 }
 
 type Phase = { kind: "idle" } | { kind: "busy"; action: GateAction } | { kind: "ok" } | { kind: "err"; msg: string };
@@ -87,7 +89,9 @@ export function GateCard({ gate, send, status, onDone }: {
           <h3 className="truncate font-semibold">{gate.name}</h3>
           {gate.subtitle && <p className="truncate text-sm text-slate-500 dark:text-slate-400">{gate.subtitle}</p>}
         </div>
-        {gate.online ? (
+        {gate.noDevice ? (
+          <Badge tone="amber">Sem equipamento</Badge>
+        ) : gate.online ? (
           <Badge tone="green"><Wifi className="size-3" /> Online</Badge>
         ) : (
           <Badge tone="red"><WifiOff className="size-3" /> Offline</Badge>
@@ -122,9 +126,9 @@ export function GateCard({ gate, send, status, onDone }: {
             <XCircle className="size-4" /> {phase.msg}
           </span>
         )}
-        {phase.kind === "idle" && (gate.deviceName || gate.lastSeen) && (
+        {phase.kind === "idle" && (gate.deviceName || gate.lastSeen || gate.noDevice) && (
           <span className="text-xs text-slate-400">
-            {gate.deviceName ? `${gate.deviceName} · ` : ""}
+            {gate.noDevice ? "Aguardando o equipamento ser vinculado · " : gate.deviceName ? `${gate.deviceName} · ` : ""}
             {gate.online ? `visto ${fmtAgo(gate.lastSeen)}` : `última conexão: ${fmtAgo(gate.lastSeen)}`}
             {!gate.canOperate && " · sem permissão de acionamento"}
           </span>
