@@ -174,4 +174,16 @@ select pg_temp.ok((select count(*) >= 1 from audit_logs where action = 'chave_te
                   'uso indevido de chave fica registrado');
 
 reset role;
+
+-- ---------- NOTIFICAÇÕES DE CADASTRO ----------
+select pg_temp.ok((select count(*) = 6 from admin_notifications where kind = 'novo_cadastro'), 'cada cadastro gera uma notificação');
+select pg_temp.ok((select count(*) = 6 from net.chamadas where url like '%/notify-admin'), 'cada notificação dispara o envio');
+select pg_temp.ok((select message like '%Morador%morador@t.com%' from admin_notifications where payload->>'email' = 'morador@t.com'),
+                  'mensagem traz nome e e-mail');
+set role authenticated;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000b', false);
+select pg_temp.ok((select count(*) = 0 from admin_notifications), 'admin comum não vê notificações da plataforma');
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', false);
+select pg_temp.ok((select count(*) = 6 from admin_notifications), 'super admin vê as notificações');
+reset role;
 \echo TODOS_OS_TESTES_PASSARAM
