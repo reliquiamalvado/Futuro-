@@ -27,6 +27,9 @@ function Shell({ title, subtitle, children }: { title: string; subtitle?: string
           <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
           {subtitle && <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{subtitle}</p>}
           <div className="mt-8">{children}</div>
+          <p className="mt-10 text-center text-xs text-slate-400">
+            <Link to="/privacidade" className="hover:underline">Privacidade</Link> · <Link to="/termos" className="hover:underline">Termos de Uso</Link>
+          </p>
         </div>
       </div>
     </div>

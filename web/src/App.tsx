@@ -15,6 +15,7 @@ import OrganizationsPage from "./pages/Organizations";
 import AuditPage from "./pages/Audit";
 import AccountPage from "./pages/Account";
 import GuestKeyPage from "./pages/GuestKey";
+import { PrivacyPage, TermsPage } from "./pages/Legal";
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const { session, loading } = useAuth();
@@ -47,6 +48,8 @@ export default function App() {
           <Route path="/recuperar-senha" element={<ForgotPasswordPage />} />
           <Route path="/redefinir-senha" element={<RequireAuth><ResetPasswordPage /></RequireAuth>} />
           <Route path="/k/:token" element={<GuestKeyPage />} />
+          <Route path="/privacidade" element={<PrivacyPage />} />
+          <Route path="/termos" element={<TermsPage />} />
 
           <Route element={<RequireAuth><Layout /></RequireAuth>}>
             <Route index element={<Dashboard />} />
