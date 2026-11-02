@@ -16,6 +16,7 @@ export const DEVICE_API_URL = `${url}/functions/v1/device-api`;
 // ---------- Tipos das tabelas ----------
 export type OrgKind = "residencial" | "condominio" | "empresa";
 export type GroupLabel = "Bloco" | "Rua" | "Quadra" | "Torre";
+export type AccountType = "casa" | "morador" | "sindico" | "empresa";
 export type MemberRole = "titular" | "morador";
 export type MemberStatus = "pendente" | "ativo" | "bloqueado";
 export type GateState = "aberto" | "fechado" | "movendo" | "desconhecido";
@@ -29,6 +30,7 @@ export interface Profile {
   email: string | null;
   phone: string | null;
   is_super_admin: boolean;
+  account_type: AccountType | null;
   created_at: string;
 }
 

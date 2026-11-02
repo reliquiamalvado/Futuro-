@@ -1,8 +1,8 @@
-import { useEffect } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Activity, Cpu, DoorClosed, Home, KeyRound, Megaphone, ShieldAlert, Ticket, UserCheck, Wifi } from "lucide-react";
 import { useAuth } from "../lib/auth";
-import { supabase, type Command, type GateAction, type MyGate } from "../lib/supabase";
+import { supabase, type AccountType, type Command, type GateAction, type MyGate } from "../lib/supabase";
 import { ACTION_LABEL, CMD_LABEL, fmtAgo, must, useLoad } from "../lib/util";
 import { Alert, Badge, Button, Card, Empty, Loading, PageHeader, Stat } from "../components/ui";
 import { GateCard } from "../components/GateCard";
@@ -10,6 +10,7 @@ import { DailyBars } from "../components/Charts";
 import { loadReport } from "./Reports";
 import { unreadAnnouncements } from "./Announcements";
 import { describeAudit } from "./Audit";
+import { PROFILE_LABEL, PROFILE_OPTIONS, ProfileChooser, nextPathFor } from "../components/ProfileChooser";
 
 export async function sendGateCommand(gateId: string, action: GateAction): Promise<string> {
   const r = must(await supabase.rpc("request_gate_command", { p_gate: gateId, p_action: action })) as
@@ -95,20 +96,7 @@ export default function Dashboard() {
       {blockedMine.length > 0 && (
         <Alert>Seu acesso a <b>{blockedMine.map((m) => m.residence_name).join(", ")}</b> está bloqueado.</Alert>
       )}
-      {noAccess && pendingMine.length === 0 && (
-        <Card className="text-center">
-          <Home className="mx-auto mb-3 size-8 text-brand-500" />
-          <h2 className="font-semibold">Como você vai usar o AuggeControl?</h2>
-          <p className="mx-auto mt-1 max-w-md text-sm text-slate-500 dark:text-slate-400">
-            Mora em condomínio ou foi convidado pela família? Use o código de convite (ou QR Code).
-            É dono de uma casa? Configure o seu portão em 3 passos.
-          </p>
-          <div className="mt-4 flex flex-wrap justify-center gap-2">
-            <Link to="/convite"><Button variant="secondary">Tenho um convite</Button></Link>
-            <Link to="/configurar-casa"><Button>Configurar minha casa</Button></Link>
-          </div>
-        </Card>
-      )}
+      {noAccess && pendingMine.length === 0 && <Onboarding />}
 
       {(unread.data ?? 0) > 0 && (
         <Link to="/comunicados" className="block">
@@ -165,6 +153,7 @@ export default function Dashboard() {
         </div>
       )}
 
+      {!(noAccess && pendingMine.length === 0) && (<>
       <section>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-lg font-semibold">Portões</h2>
@@ -229,6 +218,88 @@ export default function Dashboard() {
           )}
         </Card>
       </section>
+      </>)}
     </div>
+  );
+}
+
+/** Primeiro acesso: escolher o perfil e seguir para o próximo passo. */
+function Onboarding() {
+  const { profile, refresh } = useAuth();
+  const nav = useNavigate();
+  const [changing, setChanging] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const type = profile?.account_type ?? null;
+
+  const req = useLoad(async () => {
+    if (type !== "sindico" && type !== "empresa") return null;
+    const { data } = await supabase.from("org_requests").select("status, org_name, answer")
+      .order("created_at", { ascending: false }).limit(1).maybeSingle();
+    return data as { status: string; org_name: string; answer: string | null } | null;
+  }, [type]);
+
+  async function choose(t: AccountType) {
+    setSaving(true);
+    await supabase.from("profiles").update({ account_type: t }).eq("id", profile!.id);
+    await refresh();
+    setSaving(false);
+    setChanging(false);
+    nav(nextPathFor(t));
+  }
+
+  if (!type || changing) {
+    return (
+      <Card>
+        <h2 className="text-center font-semibold">Como você vai usar o AuggeControl?</h2>
+        <p className="mb-5 mt-1 text-center text-sm text-slate-500 dark:text-slate-400">Escolha o perfil que combina com você.</p>
+        <ProfileChooser value={type} onChange={choose} />
+        {saving && <div className="mt-4 flex justify-center"><Loading /></div>}
+      </Card>
+    );
+  }
+
+  const opt = PROFILE_OPTIONS.find((o) => o.id === type)!;
+  return (
+    <Card className="text-center">
+      <div className="mx-auto mb-3 grid size-12 place-items-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400">{opt.icon}</div>
+      <h2 className="font-semibold">{PROFILE_LABEL[type]}</h2>
+      {type === "casa" && (
+        <>
+          <p className="mx-auto mt-1 max-w-md text-sm text-slate-500">Configure o portão da sua casa em 3 passos. Se alguém da família já configurou, peça um convite.</p>
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
+            <Link to="/convite"><Button variant="secondary">Tenho um convite</Button></Link>
+            <Link to="/configurar-casa"><Button>Configurar minha casa</Button></Link>
+          </div>
+        </>
+      )}
+      {type === "morador" && (
+        <>
+          <p className="mx-auto mt-1 max-w-md text-sm text-slate-500">Peça ao síndico, à administração ou ao titular da sua unidade o código de convite (ou QR Code).</p>
+          <Link to="/convite"><Button className="mt-4">Usar convite</Button></Link>
+        </>
+      )}
+      {(type === "sindico" || type === "empresa") && (
+        req.loading ? <Loading /> : req.data?.status === "pendente" ? (
+          <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">
+            Seu pedido de cadastro de <b>{req.data.org_name}</b> está em análise. Você será liberado como administrador assim que for aprovado.
+          </p>
+        ) : req.data?.status === "recusada" ? (
+          <>
+            <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">
+              O pedido de <b>{req.data.org_name}</b> não foi aprovado.{req.data.answer ? ` Motivo: ${req.data.answer}` : ""}
+            </p>
+            <Link to="/solicitar-cadastro"><Button className="mt-4">Fazer novo pedido</Button></Link>
+          </>
+        ) : (
+          <>
+            <p className="mx-auto mt-1 max-w-md text-sm text-slate-500">
+              Envie o pedido de cadastro {type === "sindico" ? "do condomínio" : "da empresa"}. Depois da aprovação, você administra tudo pelo app.
+            </p>
+            <Link to="/solicitar-cadastro"><Button className="mt-4">Solicitar cadastro</Button></Link>
+          </>
+        )
+      )}
+      <button onClick={() => setChanging(true)} className="mt-5 block w-full text-xs text-slate-400 hover:text-brand-500">Trocar perfil</button>
+    </Card>
   );
 }

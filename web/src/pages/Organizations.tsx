@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Building2, Home, Pencil, Plus, ShieldCheck, Trash2, UserPlus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { PendingRequests } from "./OrgRequest";
 import { useAuth } from "../lib/auth";
 import { supabase, type GroupLabel, type OrgKind, type Organization, type Profile } from "../lib/supabase";
 import { KIND_LABEL, errMsg, fmtDate, must, useLoad } from "../lib/util";
@@ -57,6 +58,8 @@ export default function OrganizationsPage() {
         </>}
       />
       {error && <Alert>{error}</Alert>}
+
+      <PendingRequests onChanged={() => { list.reload(true); refresh(); }} />
 
       {list.loading ? <Loading /> : !list.data?.length ? (
         <Empty icon={<Building2 className="size-8" />} title="Nenhum cliente cadastrado" />

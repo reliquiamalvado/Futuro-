@@ -6,6 +6,7 @@ import { supabase } from "../lib/supabase";
 import { ROLE_LABEL, STATUS_LABEL, errMsg } from "../lib/util";
 import { Alert, Badge, Button, Card, Field, Input, PageHeader } from "../components/ui";
 import { useTheme } from "../components/Layout";
+import { PROFILE_LABEL } from "../components/ProfileChooser";
 
 export default function AccountPage() {
   const { profile, session, memberships, adminOrgs, roleLabel, isAdmin, isSuper, isTitular, refresh, signOut } = useAuth();
@@ -52,7 +53,8 @@ export default function AccountPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Minha conta" subtitle={<>{profile?.email} · <span className="text-brand-500">{roleLabel}</span></>} />
+      <PageHeader title="Minha conta" subtitle={<>{profile?.email} · <span className="text-brand-500">{roleLabel}</span>
+        {profile?.account_type && <> · Perfil: {PROFILE_LABEL[profile.account_type]}</>}</>} />
 
       {shortcuts.length > 0 && (
         <Card className="p-2 lg:hidden">

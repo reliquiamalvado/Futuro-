@@ -261,4 +261,31 @@ select pg_temp.ok((select count(*) = 1 from announcements where block = 'Bloco A
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000c', false);
 select pg_temp.ok((select count(*) = 0 from announcements where block = 'Bloco A'), 'morador do Bloco B não vê o aviso do Bloco A');
 reset role;
+
+-- ---------- PERFIL NO CADASTRO E PEDIDOS ----------
+insert into auth.users (id, email, raw_user_meta_data) values
+  ('00000000-0000-0000-0000-000000000021', 'sindico@t.com', '{"full_name":"Síndico","account_type":"sindico"}'),
+  ('00000000-0000-0000-0000-000000000022', 'hacker@t.com', '{"full_name":"H","account_type":"superadmin"}');
+select pg_temp.ok((select account_type = 'sindico' from profiles where email = 'sindico@t.com'), 'perfil escolhido no cadastro é salvo');
+select pg_temp.ok((select account_type is null from profiles where email = 'hacker@t.com'), 'perfil inválido é ignorado');
+select pg_temp.ok((select message like '%Perfil: Síndico%' from admin_notifications where payload->>'email' = 'sindico@t.com'), 'aviso de cadastro mostra o perfil');
+
+set role authenticated;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000021', false);
+insert into org_requests (user_id, kind, org_name, group_label, city, units) values (auth.uid(), 'condominio', 'Residencial Sol', 'Rua', 'Campinas', 80) returning id as req1 \gset
+select pg_temp.ok(pg_temp.erro($$insert into org_requests (user_id, kind, org_name) values (auth.uid(), 'empresa', 'Outra')$$) is not null, 'só um pedido pendente por vez');
+select pg_temp.ok(pg_temp.erro(format($$select review_org_request(%L, true)$$, :'req1')) is not null, 'solicitante não aprova o próprio pedido');
+select pg_temp.ok(pg_temp.erro($$update profiles set is_super_admin = true where id = auth.uid()$$) is not null, 'perfil não vira super admin');
+update profiles set account_type = 'empresa' where id = auth.uid();
+
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000e', false);
+select pg_temp.ok((select count(*) = 0 from org_requests), 'outros usuários não veem pedidos');
+
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', false);
+select review_org_request(:'req1', true, 'Bem-vindo!') as novo_org \gset
+select pg_temp.ok((select kind = 'condominio' and group_label = 'Rua' from organizations where id = :'novo_org'), 'aprovação cria o condomínio');
+select pg_temp.ok((select count(*) = 1 from org_admins where org_id = :'novo_org' and user_id = '00000000-0000-0000-0000-000000000021'), 'solicitante vira administrador');
+select pg_temp.ok(pg_temp.erro(format($$select review_org_request(%L, false)$$, :'req1')) is not null, 'pedido não é analisado duas vezes');
+reset role;
+select pg_temp.ok((select count(*) = 1 from admin_notifications where kind = 'pedido_cliente'), 'pedido gera aviso para o dono da plataforma');
 \echo TODOS_OS_TESTES_PASSARAM

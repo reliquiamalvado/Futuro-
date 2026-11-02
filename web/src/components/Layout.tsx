@@ -37,6 +37,7 @@ export function useMenuBadges() {
   const loc = useLocation();
   const [pending, setPending] = useState(0);
   const [unread, setUnread] = useState(0);
+  const [requests, setRequests] = useState(0);
   useEffect(() => {
     if (!profile) return;
     const load = async () => {
@@ -46,6 +47,10 @@ export function useMenuBadges() {
         setPending(count ?? 0);
       }
       setUnread(await unreadAnnouncements(profile.id));
+      if (profile.is_super_admin) {
+        const { count } = await supabase.from("org_requests").select("id", { count: "exact", head: true }).eq("status", "pendente");
+        setRequests(count ?? 0);
+      }
     };
     load();
     const h = () => load();
@@ -53,7 +58,7 @@ export function useMenuBadges() {
     const t = setInterval(() => !document.hidden && load(), 60_000);
     return () => { window.removeEventListener("dc:comunicados", h); clearInterval(t); };
   }, [profile, isAdmin, isTitular, loc.pathname]);
-  return { pending, unread };
+  return { pending, unread, requests };
 }
 
 export default function Layout() {
@@ -61,7 +66,7 @@ export default function Layout() {
   const { dark, toggle } = useTheme();
   const nav = useNavigate();
 
-  const { pending, unread } = useMenuBadges();
+  const { pending, unread, requests } = useMenuBadges();
   const manager = isAdmin || isTitular;
 
   const homeItems: Item[] = [
@@ -85,7 +90,7 @@ export default function Layout() {
     { section: "Administração", to: "/relatorios", label: "Relatórios", icon: <BarChart3 className="size-5" />, show: isAdmin },
     { section: "Administração", to: "/auditoria", label: "Auditoria", icon: <ShieldCheck className="size-5" />, show: isAdmin },
     { section: "Administração", to: "/administradores", label: "Administradores", icon: <UserCog className="size-5" />, show: isAdmin },
-    { section: "Administração", to: "/organizacoes", label: "Clientes", icon: <Building2 className="size-5" />, show: isSuper },
+    { section: "Administração", to: "/organizacoes", label: "Clientes", icon: <Building2 className="size-5" />, show: isSuper, badge: requests },
     { section: "Conta", to: "/conta", label: "Minha conta", icon: <UserCircle2 className="size-5" />, show: true, mobile: "Conta" },
   ];
   const visible = (homeOnly ? homeItems : fullItems).filter((i) => i.show);

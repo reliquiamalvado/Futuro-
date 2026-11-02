@@ -1,6 +1,7 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { supabase } from "../lib/supabase";
+import { supabase, type AccountType } from "../lib/supabase";
+import { PROFILE_LABEL, ProfileChooser, nextPathFor } from "../components/ProfileChooser";
 import { errMsg } from "../lib/util";
 import { Alert, Button, Field, Input } from "../components/ui";
 import { Logo } from "../components/Layout";
@@ -122,6 +123,8 @@ export function LoginPage() {
 
 export function SignupPage() {
   const loc = useLocation();
+  const [type, setType] = useState<AccountType | null>(null);
+  const [step, setStep] = useState<1 | 2>(1);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -130,20 +133,29 @@ export function SignupPage() {
   const [loading, setLoading] = useState(false);
   const nav = useNavigate();
 
+  // Quem veio por um link de convite já sabe o caminho.
+  const from = (loc.state as { from?: string } | null)?.from;
+  const target = from && from !== "/" ? from : nextPathFor(type);
+
+  function choose(t: AccountType) {
+    setType(t);
+    try { localStorage.setItem("dc.perfil", t); } catch { /* sem storage */ }
+    sessionStorage.setItem("dc.voltar", from && from !== "/" ? from : nextPathFor(t));
+  }
+
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (password.length < 8) return setError("A senha deve ter pelo menos 8 caracteres.");
     setLoading(true);
     setError(null);
-    const from = (loc.state as { from?: string } | null)?.from ?? "/";
     const { data, error } = await supabase.auth.signUp({
       email: email.trim(),
       password,
-      options: { data: { full_name: name.trim() }, emailRedirectTo: window.location.origin + from },
+      options: { data: { full_name: name.trim(), account_type: type }, emailRedirectTo: window.location.origin + target },
     });
     setLoading(false);
     if (error) return setError(errMsg(error));
-    if (data.session) nav(from, { replace: true });
+    if (data.session) nav(target, { replace: true });
     else setDone(true);
   }
 
@@ -158,8 +170,21 @@ export function SignupPage() {
     );
   }
 
+  if (step === 1) {
+    return (
+      <Shell title="Criar conta" subtitle="Primeiro, conte como você vai usar o AuggeControl.">
+        <ProfileChooser value={type} onChange={choose} compact />
+        <Button className="mt-6 w-full" disabled={!type} onClick={() => setStep(2)}>Continuar</Button>
+        <p className="mt-6 text-sm">
+          Já tem conta? <Link to="/login" state={loc.state} className="text-brand-500 hover:underline">Entrar</Link>
+        </p>
+      </Shell>
+    );
+  }
+
   return (
-    <Shell title="Criar conta" subtitle="Depois de criar a conta, use o convite da sua residência para liberar o acesso.">
+    <Shell title="Criar conta" subtitle={type ? `Perfil: ${PROFILE_LABEL[type]}` : undefined}>
+      <button type="button" onClick={() => setStep(1)} className="-mt-6 mb-6 text-sm text-brand-500 hover:underline">← Trocar perfil</button>
       <GoogleButton />
       <Divider />
       <form onSubmit={submit} className="space-y-4">

@@ -63,7 +63,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .eq("user_id", uid),
       supabase.from("org_admins").select("org_id, organizations(id, name, kind, group_label)").eq("user_id", uid),
     ]);
-    setProfile((p.data as Profile) ?? null);
+    let prof = (p.data as Profile) ?? null;
+    // Cadastro pelo Google não leva o perfil escolhido: aplica o que ficou guardado.
+    if (prof && !prof.account_type) {
+      let saved: string | null = null;
+      try { saved = localStorage.getItem("dc.perfil"); } catch { /* sem storage */ }
+      if (saved && ["casa", "morador", "sindico", "empresa"].includes(saved)) {
+        const upd = await supabase.from("profiles").update({ account_type: saved }).eq("id", uid).select().maybeSingle();
+        if (upd.data) prof = upd.data as Profile;
+      }
+    }
+    if (prof?.account_type) { try { localStorage.removeItem("dc.perfil"); } catch { /* sem storage */ } }
+    setProfile(prof);
 
     type MRow = {
       id: string; residence_id: string; role: MemberRole; status: MemberStatus;
@@ -88,7 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .map((r) => r.organizations!);
 
     // Super admin administra todas as organizações.
-    if ((p.data as Profile | null)?.is_super_admin) {
+    if (prof?.is_super_admin) {
       const all = await supabase.from("organizations").select("id, name, kind, group_label").order("name");
       orgs = (all.data ?? []) as AdminOrg[];
     }
