@@ -2,7 +2,7 @@ import { browserSupportsWebAuthn, platformAuthenticatorIsAvailable, startAuthent
 import { supabase, type GateAction } from "./supabase";
 import { must } from "./util";
 
-export interface UnlockMethods { pin: boolean; bloqueado_ate: string | null; biometrias: number; login_recente: boolean }
+export interface UnlockMethods { pin: boolean; bloqueado_ate: string | null; biometrias: number; login_recente: boolean; recuperacoes_restantes?: number }
 
 export async function getUnlockMethods(): Promise<UnlockMethods> {
   return must(await supabase.rpc("my_unlock_methods")) as UnlockMethods;

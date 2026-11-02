@@ -158,6 +158,7 @@ function UnlockDialog({ p, onClose }: { p: Pending; onClose: () => void }) {
               </div>
               <Button className="w-full" loading={busy} disabled={pin.length < 4} onClick={() => submitPin(pin)}>Confirmar</Button>
               {bioOk && <button onClick={() => setMode("escolha")} className="block w-full text-center text-sm text-brand-500">Usar digital ou rosto</button>}
+              <button onClick={() => { cancel(); nav("/conta?esqueci=1#abertura"); }} className="block w-full text-center text-sm text-slate-500 underline">Esqueci minha senha de abertura</button>
             </div>
           )}
           {error && <Alert>{error}</Alert>}

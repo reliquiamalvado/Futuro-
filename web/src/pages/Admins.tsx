@@ -4,6 +4,7 @@ import { useAuth } from "../lib/auth";
 import { supabase, type Profile } from "../lib/supabase";
 import { errMsg, fmtDate, must, useLoad } from "../lib/util";
 import { Alert, Badge, Button, Card, Empty, Field, Input, Loading, PageHeader, Select, Table, Td } from "../components/ui";
+import { PinResetButton, usePinStatus } from "../components/PinReset";
 
 interface AdminRow {
   org_id: string;
@@ -26,6 +27,10 @@ export default function AdminsPage() {
   const supers = useLoad(async () =>
     isSuper ? must(await supabase.from("profiles").select("*").eq("is_super_admin", true).order("full_name")) as Profile[] : [],
   [isSuper]);
+
+  const canManage = (org: string) => isSuper || adminOrgs.some((o) => o.id === org);
+  const pins = usePinStatus((admins.data ?? []).map((a) => a.org_id).filter(canManage));
+  const [ok, setOk] = useState<string | null>(null);
 
   async function add(e: FormEvent) {
     e.preventDefault();
@@ -52,6 +57,7 @@ export default function AdminsPage() {
     <div className="space-y-6">
       <PageHeader title="Administradores" subtitle="Quem administra cada organização. Administradores gerenciam residências, moradores, portões e comunicados." />
       {error && <Alert>{error}</Alert>}
+      {ok && <Alert tone="green">{ok}</Alert>}
 
       {isSuper && (
         <Card>
@@ -85,6 +91,13 @@ export default function AdminsPage() {
                 <Td><Badge tone="blue">Admin</Badge></Td>
                 <Td className="whitespace-nowrap text-slate-500">{fmtDate(a.created_at)}</Td>
                 <Td className="text-right">
+                  <div className="flex items-center justify-end gap-1">
+                  {canManage(a.org_id) && a.user_id !== profile?.id && (
+                    <PinResetButton orgId={a.org_id} userId={a.user_id} name={a.profiles?.full_name || a.profiles?.email || "esta pessoa"}
+                      status={pins.get(a.org_id, a.user_id)}
+                      onError={(t) => { setOk(null); setError(t); }}
+                      onDone={() => { setError(null); setOk(`Senha de abertura de ${a.profiles?.full_name || a.profiles?.email} liberada.`); pins.reload(); }} />
+                  )}
                   {isSuper && (
                     <Button size="sm" variant="ghost" title="Remover" onClick={async () => {
                       if (!confirm(`Remover ${a.profiles?.email} da administração de ${a.organizations?.name}?`)) return;
@@ -93,6 +106,7 @@ export default function AdminsPage() {
                       admins.reload(true);
                     }}><Trash2 className="size-4" /></Button>
                   )}
+                  </div>
                 </Td>
               </tr>
             ))}

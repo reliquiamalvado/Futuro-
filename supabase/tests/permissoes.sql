@@ -518,4 +518,37 @@ reset role;
 set role service_role;
 select pg_temp.ok((select (pair_device(:'pcode2', '6.6.6.6'))->>'erro' = 'muitas tentativas, aguarde'), 'IP com 20 códigos errados fica bloqueado');
 reset role;
+
+-- ---------- SENHA DE ABERTURA ESQUECIDA (1 chance, depois só o administrador) ----------
+reset role;
+update gate_pins set locked_until = null, failed = 0;
+set role authenticated;
+select set_config('request.jwt.claim.sub', :'MOR', false);
+select set_config('request.jwt.claim.session_id', '00000000-0000-0000-0000-0000000005e1', false);
+select pg_temp.ok((select (set_gate_pin('5937', null, true))->>'reautenticar' = 'true'), 'esqueci a senha com sessão antiga: pede novo login');
+select pg_temp.ok((select (my_unlock_methods())->>'recuperacoes_restantes' = '1'), 'começa com 1 chance de recuperação');
+select set_config('request.jwt.claim.session_id', '00000000-0000-0000-0000-0000000005e2', false);
+select pg_temp.ok((select (set_gate_pin('5937', null, true))->>'ok' = 'true'), 'esqueci a senha com login recente: recupera');
+select pg_temp.ok((select (my_unlock_methods())->>'recuperacoes_restantes' = '0'), 'a chance é gasta');
+select pg_temp.ok((select (set_gate_pin('6248', null, true))->>'precisa_admin' = 'true'), 'segunda vez: só com o administrador');
+select pg_temp.ok((select (set_gate_pin('6248', '0000'))->>'ok' = 'false'), 'trocar exige a senha atual, mesmo com login recente');
+select pg_temp.ok((select (set_gate_pin('6248', '5937'))->>'ok' = 'true'), 'quem lembra a senha troca quando quiser');
+select request_gate_command(:'gc', 'pulso', '6248') as abre \gset
+select pg_temp.ok((:'abre'::jsonb)->>'confirmacao' is null and (:'abre'::jsonb)->>'erro' is distinct from 'Senha de abertura incorreta.', 'nova senha é aceita para acionar');
+select pg_temp.ok((select count(*) = 0 from org_pin_status(:'org_c')), 'morador não vê a situação das senhas dos outros');
+select pg_temp.ok(pg_temp.erro(format($$select admin_reset_gate_pin(%L, %L)$$, :'TIT', :'org_c')) is not null, 'morador não libera senha de ninguém');
+select pg_temp.ok((select (admin_reset_gate_pin(:'MOR', :'org_c'))->>'ok' = 'false'), 'ninguém libera a própria senha');
+select set_config('request.jwt.claim.sub', :'ADMB', false);
+select pg_temp.ok(pg_temp.erro(format($$select admin_reset_gate_pin(%L, %L)$$, :'MOR', :'org_c')) is not null, 'administrador de outro condomínio não libera');
+select set_config('request.jwt.claim.sub', :'ADMIN', false);
+select pg_temp.ok((select recuperacoes_restantes = 0 and tem_senha from org_pin_status(:'org_c') where user_id = :'MOR'), 'administrador vê que o morador já usou a chance');
+select pg_temp.ok((select (admin_reset_gate_pin(:'MOR', :'org_c'))->>'ok' = 'true'), 'administrador do condomínio libera a senha do morador');
+reset role;
+select pg_temp.ok(not exists (select 1 from gate_pins where user_id = :'MOR'), 'senha antiga apagada');
+select pg_temp.ok(exists (select 1 from audit_logs where action = 'abertura.senha_liberada_admin'), 'liberação fica no histórico');
+set role authenticated;
+select set_config('request.jwt.claim.sub', :'MOR', false);
+select pg_temp.ok((select (set_gate_pin('7381'))->>'ok' = 'true'), 'morador cria a nova senha (login recente)');
+select pg_temp.ok((select (my_unlock_methods())->>'recuperacoes_restantes' = '1'), 'e ganha de novo 1 chance');
+reset role;
 \echo TODOS_OS_TESTES_PASSARAM

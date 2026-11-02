@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { Fingerprint, KeyRound, Lock, ScanFace, Trash2 } from "lucide-react";
+import { AlertTriangle, Fingerprint, KeyRound, Lock, ScanFace, Trash2 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { supabase } from "../lib/supabase";
 import { errMsg, fmtAgo, fmtDate, must } from "../lib/util";
@@ -27,6 +27,8 @@ export function UnlockSettings() {
   const [needLogin, setNeedLogin] = useState(false);
   const [msg, setMsg] = useState<{ tone: "green" | "red"; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [forgot, setForgot] = useState(() => new URLSearchParams(window.location.search).has("esqueci"));
+  const [noted, setNoted] = useState(false);
 
   async function load() {
     const [mm, c, b] = await Promise.all([
@@ -51,12 +53,15 @@ export function UnlockSettings() {
     if (pin !== pin2) return setMsg({ tone: "red", text: "As senhas não conferem." });
     setBusy(true);
     try {
-      const r = must(await supabase.rpc("set_gate_pin", { p_new: pin, p_current: current || null })) as
-        { ok: boolean; erro?: string; reautenticar?: boolean };
+      const recovering = !!m?.pin && forgot;
+      const r = must(await supabase.rpc("set_gate_pin", recovering ? { p_new: pin, p_current: null, p_esqueci: true } : { p_new: pin, p_current: current || null })) as
+        { ok: boolean; erro?: string; reautenticar?: boolean; precisa_admin?: boolean };
       if (r.reautenticar) setNeedLogin(true);
-      if (!r.ok) return setMsg({ tone: "red", text: r.erro ?? "Não foi possível salvar." });
-      setMsg({ tone: "green", text: m?.pin ? "Senha de abertura alterada." : "Senha de abertura criada. A partir de agora ela será pedida para acionar portões." });
-      setCurrent(""); setPin(""); setPin2("");
+      if (!r.ok) { if (r.precisa_admin) await load(); return setMsg({ tone: "red", text: r.erro ?? "Não foi possível salvar." }); }
+      setMsg({ tone: "green", text: recovering
+        ? "Nova senha de abertura criada. Atenção: essa era sua única chance. Se esquecer de novo, só o administrador poderá liberar."
+        : m?.pin ? "Senha de abertura alterada." : "Senha de abertura criada. Guarde-a bem: ela será pedida para acionar portões." });
+      setCurrent(""); setPin(""); setPin2(""); setNoted(false); setForgot(false);
       await load();
     } catch (err) { setMsg({ tone: "red", text: errMsg(err) }); }
     finally { setBusy(false); }
@@ -88,10 +93,13 @@ export function UnlockSettings() {
 
   async function relogin() {
     await signOut();
-    nav("/login", { state: { from: "/conta#abertura" } });
+    nav("/login", { state: { from: forgot ? "/conta?esqueci=1#abertura" : "/conta#abertura" } });
   }
 
   const configured = m && (m.pin || m.biometrias > 0);
+  const left = m?.recuperacoes_restantes ?? 1;
+  const recovering = !!m?.pin && forgot;
+  const needsNote = !m?.pin || (recovering && left > 0);
 
   return (
     <Card>
@@ -120,12 +128,29 @@ export function UnlockSettings() {
             Senha de abertura {m?.pin && <Badge tone="green">definida</Badge>}
           </h3>
           {m?.bloqueado_ate && <Alert tone="amber">Bloqueada até {fmtDate(m.bloqueado_ate)} por tentativas erradas.</Alert>}
-          {m?.pin && !m.login_recente && (
-            <Field label="Senha de abertura atual">
-              <Input type="password" inputMode="numeric" autoComplete="off" value={current} onChange={(e) => setCurrent(digits(e.target.value))} />
-            </Field>
+          {m?.pin && !forgot && (
+            <>
+              <Field label="Senha de abertura atual">
+                <Input type="password" inputMode="numeric" autoComplete="off" value={current} onChange={(e) => setCurrent(digits(e.target.value))} />
+              </Field>
+              <button type="button" className="text-sm text-brand-500 underline" onClick={() => { setForgot(true); setMsg(null); }}>Esqueci minha senha de abertura</button>
+            </>
           )}
-          <div className="grid grid-cols-2 gap-3">
+          {recovering && left <= 0 && (
+            <Alert tone="amber">
+              Você já usou sua chance de recuperar a senha sozinho. Peça ao <b>administrador</b> da sua casa ou condomínio para
+              liberar uma nova (em Moradores ou Administradores, no botão da chave). Depois é só voltar aqui e criar outra.
+              <button type="button" className="mt-2 block text-sm underline" onClick={() => setForgot(false)}>Voltar</button>
+            </Alert>
+          )}
+          {recovering && left > 0 && (
+            <Alert tone="amber">
+              <b>Você tem só mais 1 chance</b> de criar uma nova senha sem a antiga. Por segurança, é preciso ter entrado na conta
+              há menos de 10 minutos. Se esquecer de novo, <b>só o administrador poderá liberar</b>.
+              <button type="button" className="mt-2 block text-sm underline" onClick={() => setForgot(false)}>Lembrei a senha</button>
+            </Alert>
+          )}
+          {!(recovering && left <= 0) && <div className="grid grid-cols-2 gap-3">
             <Field label={m?.pin ? "Nova senha" : "Senha (4 a 8 números)"}>
               <Input type="password" inputMode="numeric" autoComplete="new-password" required minLength={4}
                 value={pin} onChange={(e) => setPin(digits(e.target.value))} />
@@ -134,9 +159,30 @@ export function UnlockSettings() {
               <Input type="password" inputMode="numeric" autoComplete="new-password" required minLength={4}
                 value={pin2} onChange={(e) => setPin2(digits(e.target.value))} />
             </Field>
-          </div>
+          </div>}
           <p className="text-xs text-slate-500">Não use datas de aniversário nem sequências (1234, 1111). Não use a mesma senha do celular.</p>
-          <Button type="submit" loading={busy} disabled={pin.length < 4}>{m?.pin ? "Trocar senha" : "Criar senha de abertura"}</Button>
+          {needsNote && (
+            <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+              <p className="flex items-start gap-2 font-semibold"><AlertTriangle className="mt-0.5 size-4 flex-none" /> Anote esta senha em um lugar seguro</p>
+              <p className="mt-1">
+                {recovering
+                  ? "Esta é sua última chance de recuperar sozinho. Se esquecer de novo, só o administrador poderá liberar uma nova senha."
+                  : "Se esquecer, você poderá recuperar sozinho só 1 vez. Depois disso, a recuperação será só com o administrador."}
+              </p>
+              <label className="mt-2 flex items-center gap-2 font-medium">
+                <input type="checkbox" checked={noted} onChange={(e) => setNoted(e.target.checked)} className="size-4" />
+                Anotei minha senha
+              </label>
+            </div>
+          )}
+          {m?.pin && !forgot && left <= 0 && (
+            <p className="text-xs text-amber-600">Você já usou sua chance de recuperação. Se esquecer esta senha, só o administrador libera outra.</p>
+          )}
+          {!(recovering && left <= 0) && (
+            <Button type="submit" loading={busy} disabled={pin.length < 4 || (needsNote && !noted)}>
+              {recovering ? "Criar nova senha" : m?.pin ? "Trocar senha" : "Criar senha de abertura"}
+            </Button>
+          )}
         </form>
 
         <div className="space-y-3">

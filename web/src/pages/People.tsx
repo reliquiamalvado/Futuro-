@@ -5,6 +5,7 @@ import { useAuth } from "../lib/auth";
 import { supabase, type MemberRole, type MemberStatus } from "../lib/supabase";
 import { ROLE_LABEL, STATUS_LABEL, errMsg, fmtAgo, fmtDate, must, useLoad } from "../lib/util";
 import { Alert, Badge, Button, Card, Empty, Input, Loading, Modal, PageHeader, Select, Table, Td } from "../components/ui";
+import { PinResetButton, usePinStatus } from "../components/PinReset";
 
 export interface MemberFull {
   id: string;
@@ -176,6 +177,8 @@ export function ResidentsPage() {
     (!q || `${m.profiles?.full_name} ${m.profiles?.email} ${m.residences?.name}`.toLowerCase().includes(q.toLowerCase())));
 
   const isOrgAdmin = (m: MemberFull) => isSuper || adminOrgs.some((o) => o.id === m.residences?.org_id);
+  const pins = usePinStatus((list.data ?? []).filter(isOrgAdmin).map((m) => m.residences?.org_id ?? ""));
+  const [ok, setOk] = useState<string | null>(null);
 
   async function act(fn: () => Promise<void>) {
     setError(null);
@@ -225,6 +228,7 @@ export function ResidentsPage() {
         </Select>
       </div>
       {error && <div className="mb-4"><Alert>{error}</Alert></div>}
+      {ok && <div className="mb-4"><Alert tone="green">{ok}</Alert></div>}
 
       {list.loading ? <Loading /> : list.error ? <Alert>{list.error}</Alert> : rows.length === 0 ? (
         <Empty icon={<Users className="size-8" />} title="Nenhum morador encontrado" />
@@ -257,7 +261,13 @@ export function ResidentsPage() {
                   <Td><Badge tone={m.status === "ativo" ? "green" : "red"} dot>{STATUS_LABEL[m.status]}</Badge></Td>
                   <Td className="whitespace-nowrap text-slate-500">{fmtDate(m.approved_at ?? m.created_at)}</Td>
                   <Td className="text-right">
-                    <div className="flex justify-end gap-1">
+                    <div className="flex items-center justify-end gap-1">
+                      {admin && !self && m.residences && (
+                        <PinResetButton orgId={m.residences.org_id} userId={m.user_id} name={m.profiles?.full_name || m.profiles?.email || "esta pessoa"}
+                          status={pins.get(m.residences.org_id, m.user_id)}
+                          onError={(t) => { setOk(null); setError(t); }}
+                          onDone={() => { setError(null); setOk(`Senha de abertura de ${m.profiles?.full_name || m.profiles?.email} liberada. Avise a pessoa para criar uma nova em Minha conta.`); pins.reload(); }} />
+                      )}
                       <Link to={`/residencias/${m.residence_id}`} title="Abrir residência (permissões)">
                         <Button size="sm" variant="ghost"><ExternalLink className="size-4" /></Button>
                       </Link>
