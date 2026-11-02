@@ -7,7 +7,7 @@ import { errMsg, must, useLoad } from "../lib/util";
 import { Alert, Button, Card, Empty, Field, Input, Loading, Modal, PageHeader, Select } from "../components/ui";
 
 type Row = Residence & {
-  organizations: { name: string } | null;
+  organizations: { name: string; group_label: string; kind: string } | null;
   residence_members: { status: string }[];
 };
 
@@ -15,18 +15,23 @@ export default function ResidencesPage() {
   const { isAdmin, adminOrgs } = useAuth();
   const [orgFilter, setOrgFilter] = useState("");
   const [search, setSearch] = useState("");
+  const [block, setBlock] = useState("");
   const [open, setOpen] = useState(false);
 
   const list = useLoad(async () => {
     let q = supabase.from("residences")
-      .select("*, organizations(name), residence_members(status)")
-      .order("name");
+      .select("*, organizations(name, group_label, kind), residence_members(status)")
+      .order("block", { nullsFirst: false }).order("name");
     if (orgFilter) q = q.eq("org_id", orgFilter);
     return must(await q) as unknown as Row[];
   }, [orgFilter]);
 
+  const blocks = [...new Set((list.data ?? []).map((r) => r.block).filter(Boolean))] as string[];
+  const groupLabel = (list.data ?? []).find((r) => r.block)?.organizations?.group_label ?? "Bloco";
   const rows = (list.data ?? []).filter((r) =>
-    !search || `${r.name} ${r.address ?? ""} ${r.complement ?? ""}`.toLowerCase().includes(search.toLowerCase()));
+    (!block || (block === "__sem" ? !r.block : r.block === block)) &&
+    (!search || `${r.name} ${r.block ?? ""} ${r.address ?? ""} ${r.complement ?? ""}`.toLowerCase().includes(search.toLowerCase())));
+  const groups = [...new Set(rows.map((r) => r.block ?? ""))];
 
   return (
     <div>
@@ -44,6 +49,13 @@ export default function ResidencesPage() {
             {adminOrgs.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
           </Select>
         )}
+        {blocks.length > 0 && (
+          <Select value={block} onChange={(e) => setBlock(e.target.value)} className="max-w-xs">
+            <option value="">Todos os agrupamentos</option>
+            {blocks.map((b) => <option key={b} value={b}>{b}</option>)}
+            <option value="__sem">Sem agrupamento</option>
+          </Select>
+        )}
       </div>
 
       {list.loading ? <Loading /> : list.error ? <Alert>{list.error}</Alert> : rows.length === 0 ? (
@@ -51,8 +63,16 @@ export default function ResidencesPage() {
           {isAdmin ? "Cadastre a primeira residência para começar a convidar moradores." : null}
         </Empty>
       ) : (
+        <div className="space-y-6">
+        {groups.map((gname) => (
+        <section key={gname || "__sem"}>
+          {groups.length > 1 || gname ? (
+            <h2 className="mb-2 text-sm font-semibold text-slate-500">
+              {gname || `Sem ${groupLabel.toLowerCase()}`} · {rows.filter((r) => (r.block ?? "") === gname).length}
+            </h2>
+          ) : null}
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {rows.map((r) => {
+          {rows.filter((r) => (r.block ?? "") === gname).map((r) => {
             const active = r.residence_members.filter((m) => m.status === "ativo").length;
             const pending = r.residence_members.filter((m) => m.status === "pendente").length;
             return (
@@ -74,21 +94,28 @@ export default function ResidencesPage() {
             );
           })}
         </div>
+        </section>
+        ))}
+        </div>
       )}
 
-      <NewResidenceModal open={open} onClose={() => setOpen(false)} onSaved={() => { setOpen(false); list.reload(); }} />
+      <NewResidenceModal open={open} knownBlocks={blocks} onClose={() => setOpen(false)} onSaved={() => { setOpen(false); list.reload(); }} />
     </div>
   );
 }
 
-function NewResidenceModal({ open, onClose, onSaved }: { open: boolean; onClose: () => void; onSaved: () => void }) {
+function NewResidenceModal({ open, onClose, onSaved, knownBlocks }: {
+  open: boolean; onClose: () => void; onSaved: () => void; knownBlocks: string[];
+}) {
   const { adminOrgs } = useAuth();
   const [org, setOrg] = useState("");
   const [name, setName] = useState("");
+  const [blockName, setBlockName] = useState("");
   const [address, setAddress] = useState("");
   const [complement, setComplement] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const selOrg = adminOrgs.find((o) => o.id === (org || adminOrgs[0]?.id));
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -96,10 +123,10 @@ function NewResidenceModal({ open, onClose, onSaved }: { open: boolean; onClose:
     setError(null);
     try {
       must(await supabase.from("residences").insert({
-        org_id: org || adminOrgs[0]?.id, name: name.trim(),
+        org_id: org || adminOrgs[0]?.id, name: name.trim(), block: blockName.trim() || null,
         address: address.trim() || null, complement: complement.trim() || null,
       }).select().single());
-      setName(""); setAddress(""); setComplement("");
+      setName(""); setBlockName(""); setAddress(""); setComplement("");
       onSaved();
     } catch (err) {
       setError(errMsg(err));
@@ -119,7 +146,13 @@ function NewResidenceModal({ open, onClose, onSaved }: { open: boolean; onClose:
             </Select>
           </Field>
         )}
-        <Field label="Identificação" hint="Ex.: Casa 12, Apto 304 - Bloco B, Sala 5">
+        {selOrg?.kind !== "residencial" && (
+          <Field label={`${selOrg?.group_label ?? "Bloco"} (opcional)`} hint={`Ex.: ${selOrg?.group_label === "Rua" ? "Rua das Acácias" : selOrg?.group_label === "Quadra" ? "Quadra 3" : selOrg?.group_label === "Torre" ? "Torre 2" : "Bloco B"}`}>
+            <Input value={blockName} list="dc-blocos" onChange={(e) => setBlockName(e.target.value)} />
+            <datalist id="dc-blocos">{knownBlocks.map((b) => <option key={b} value={b} />)}</datalist>
+          </Field>
+        )}
+        <Field label="Identificação" hint="Ex.: Casa 12, Apto 304, Sala 5">
           <Input required value={name} onChange={(e) => setName(e.target.value)} />
         </Field>
         <Field label="Endereço"><Input value={address} onChange={(e) => setAddress(e.target.value)} /></Field>

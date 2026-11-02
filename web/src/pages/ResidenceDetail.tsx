@@ -12,11 +12,11 @@ type MemberRow = ResidenceMember & { profiles: { full_name: string | null; email
 export default function ResidenceDetail() {
   const { id = "" } = useParams();
   const nav = useNavigate();
-  const { profile, adminOrgs, isSuper } = useAuth();
+  const { profile, adminOrgs, isSuper, homeOnly } = useAuth();
 
   const res = useLoad(async () =>
-    must(await supabase.from("residences").select("*, organizations(name)").eq("id", id).single()) as
-      Residence & { organizations: { name: string } | null }, [id]);
+    must(await supabase.from("residences").select("*, organizations(name, kind, group_label)").eq("id", id).single()) as
+      Residence & { organizations: { name: string; kind: string; group_label: string } | null }, [id]);
   const members = useLoad(async () =>
     must(await supabase.from("residence_members")
       .select("*, profiles:user_id(full_name, email, phone)")
@@ -48,12 +48,14 @@ export default function ResidenceDetail() {
 
   return (
     <div className="space-y-6">
-      <Link to="/residencias" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-brand-500">
-        <ArrowLeft className="size-4" /> Residências
-      </Link>
+      {!homeOnly && (
+        <Link to="/residencias" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-brand-500">
+          <ArrowLeft className="size-4" /> Residências
+        </Link>
+      )}
       <PageHeader
         title={r.name}
-        subtitle={[r.organizations?.name, r.address, r.complement].filter(Boolean).join(" · ")}
+        subtitle={(r.organizations?.kind === "residencial" ? [r.address] : [r.organizations?.name, r.block, r.address, r.complement]).filter(Boolean).join(" · ") || undefined}
         actions={<>
           <Link to={`/chaves?residencia=${r.id}`}><Button variant="secondary"><KeyRound className="size-4" /> Chaves temporárias</Button></Link>
           {isAdmin && <Button variant="secondary" onClick={() => setEdit(true)}><Pencil className="size-4" /> Editar</Button>}
@@ -88,7 +90,7 @@ export default function ResidenceDetail() {
 
       <Card>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="font-semibold">Moradores</h2>
+          <h2 className="font-semibold">{r.organizations?.kind === "residencial" ? "Família e moradores" : "Moradores"}</h2>
           <Button size="sm" variant="secondary" onClick={() => setAddMember(true)}><UserPlus className="size-4" /> Adicionar por e-mail</Button>
         </div>
         {members.loading ? <Loading /> : (
@@ -160,7 +162,7 @@ export default function ResidenceDetail() {
         )}
       </Card>
 
-      {edit && <EditResidence r={r} onClose={() => setEdit(false)} onSaved={() => { setEdit(false); res.reload(); }}
+      {edit && <EditResidence r={r} groupLabel={r.organizations?.kind === "residencial" ? null : r.organizations?.group_label ?? "Bloco"} onClose={() => setEdit(false)} onSaved={() => { setEdit(false); res.reload(); }}
         onDeleted={() => nav("/residencias")} />}
       <AddMemberModal open={addMember} residenceId={r.id} isAdmin={isAdmin} onClose={() => setAddMember(false)}
         onSaved={() => { setAddMember(false); members.reload(); }} />
@@ -172,10 +174,11 @@ export default function ResidenceDetail() {
   );
 }
 
-function EditResidence({ r, onClose, onSaved, onDeleted }: {
-  r: Residence; onClose: () => void; onSaved: () => void; onDeleted: () => void;
+function EditResidence({ r, groupLabel, onClose, onSaved, onDeleted }: {
+  r: Residence; groupLabel: string | null; onClose: () => void; onSaved: () => void; onDeleted: () => void;
 }) {
   const [name, setName] = useState(r.name);
+  const [block, setBlock] = useState(r.block ?? "");
   const [address, setAddress] = useState(r.address ?? "");
   const [complement, setComplement] = useState(r.complement ?? "");
   const [error, setError] = useState<string | null>(null);
@@ -183,7 +186,7 @@ function EditResidence({ r, onClose, onSaved, onDeleted }: {
   async function save(e: FormEvent) {
     e.preventDefault();
     const { error } = await supabase.from("residences")
-      .update({ name: name.trim(), address: address.trim() || null, complement: complement.trim() || null }).eq("id", r.id);
+      .update({ name: name.trim(), block: block.trim() || null, address: address.trim() || null, complement: complement.trim() || null }).eq("id", r.id);
     if (error) return setError(errMsg(error));
     onSaved();
   }
@@ -197,6 +200,7 @@ function EditResidence({ r, onClose, onSaved, onDeleted }: {
   return (
     <Modal open onClose={onClose} title="Editar residência">
       <form onSubmit={save} className="space-y-4">
+        {groupLabel && <Field label={groupLabel}><Input value={block} onChange={(e) => setBlock(e.target.value)} /></Field>}
         <Field label="Identificação"><Input required value={name} onChange={(e) => setName(e.target.value)} /></Field>
         <Field label="Endereço"><Input value={address} onChange={(e) => setAddress(e.target.value)} /></Field>
         <Field label="Complemento"><Input value={complement} onChange={(e) => setComplement(e.target.value)} /></Field>

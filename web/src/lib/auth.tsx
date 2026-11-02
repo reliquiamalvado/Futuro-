@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { supabase, type MemberRole, type MemberStatus, type Profile } from "./supabase";
+import { supabase, type GroupLabel, type MemberRole, type MemberStatus, type OrgKind, type Profile } from "./supabase";
 
 export interface Membership {
   id: string;
@@ -10,11 +10,14 @@ export interface Membership {
   residence_name: string;
   org_id: string;
   org_name: string;
+  org_kind: OrgKind;
 }
 
 export interface AdminOrg {
   id: string;
   name: string;
+  kind: OrgKind;
+  group_label: GroupLabel;
 }
 
 interface AuthState {
@@ -27,6 +30,10 @@ interface AuthState {
   isAdmin: boolean;     // admin de alguma organização (ou super admin)
   isTitular: boolean;   // titular ativo de alguma residência
   roleLabel: string;
+  /** Só tem casa(s) comuns: o app mostra o menu simplificado. */
+  homeOnly: boolean;
+  /** Residência principal do usuário numa casa comum. */
+  homeResidenceId: string | null;
   refresh: () => Promise<void>;
   signOut: (scope?: "local" | "others" | "global") => Promise<void>;
 }
@@ -52,15 +59,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       supabase.from("profiles").select("*").eq("id", uid).maybeSingle(),
       supabase
         .from("residence_members")
-        .select("id, residence_id, role, status, residences(name, org_id, organizations(name))")
+        .select("id, residence_id, role, status, residences(name, org_id, organizations(name, kind))")
         .eq("user_id", uid),
-      supabase.from("org_admins").select("org_id, organizations(id, name)").eq("user_id", uid),
+      supabase.from("org_admins").select("org_id, organizations(id, name, kind, group_label)").eq("user_id", uid),
     ]);
     setProfile((p.data as Profile) ?? null);
 
     type MRow = {
       id: string; residence_id: string; role: MemberRole; status: MemberStatus;
-      residences: { name: string; org_id: string; organizations: { name: string } | null } | null;
+      residences: { name: string; org_id: string; organizations: { name: string; kind: OrgKind } | null } | null;
     };
     setMemberships(
       ((m.data ?? []) as unknown as MRow[]).map((r) => ({
@@ -71,17 +78,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         residence_name: r.residences?.name ?? "—",
         org_id: r.residences?.org_id ?? "",
         org_name: r.residences?.organizations?.name ?? "—",
+        org_kind: r.residences?.organizations?.kind ?? "condominio",
       })),
     );
 
-    type ARow = { org_id: string; organizations: { id: string; name: string } | null };
+    type ARow = { org_id: string; organizations: AdminOrg | null };
     let orgs = ((a.data ?? []) as unknown as ARow[])
       .filter((r) => r.organizations)
-      .map((r) => ({ id: r.organizations!.id, name: r.organizations!.name }));
+      .map((r) => r.organizations!);
 
     // Super admin administra todas as organizações.
     if ((p.data as Profile | null)?.is_super_admin) {
-      const all = await supabase.from("organizations").select("id, name").order("name");
+      const all = await supabase.from("organizations").select("id, name, kind, group_label").order("name");
       orgs = (all.data ?? []) as AdminOrg[];
     }
     setAdminOrgs(orgs.sort((x, y) => x.name.localeCompare(y.name)));
@@ -118,9 +126,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const isTitular = memberships.some((m) => m.role === "titular" && m.status === "ativo");
     const roleLabel = isSuper ? "Super Admin" : isAdmin ? "Admin" : isTitular ? "Titular"
       : memberships.some((m) => m.status === "ativo") ? "Morador" : "Sem acesso";
+    const activeHomes = memberships.filter((m) => m.status === "ativo" && m.org_kind === "residencial");
+    const homeOnly = !isSuper
+      && (adminOrgs.length > 0 || memberships.length > 0)
+      && adminOrgs.every((o) => o.kind === "residencial")
+      && memberships.every((m) => m.org_kind === "residencial");
+    const homeResidenceId = homeOnly && activeHomes.length === 1 ? activeHomes[0].residence_id : null;
     return {
       session, profile, memberships, adminOrgs, loading,
-      isSuper, isAdmin, isTitular, roleLabel, refresh, signOut,
+      isSuper, isAdmin, isTitular, roleLabel: homeOnly ? (isTitular ? "Titular da casa" : roleLabel) : roleLabel,
+      homeOnly, homeResidenceId, refresh, signOut,
     };
   }, [session, profile, memberships, adminOrgs, loading, refresh, signOut]);
 

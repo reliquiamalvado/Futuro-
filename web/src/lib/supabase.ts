@@ -15,6 +15,7 @@ export const DEVICE_API_URL = `${url}/functions/v1/device-api`;
 
 // ---------- Tipos das tabelas ----------
 export type OrgKind = "residencial" | "condominio" | "empresa";
+export type GroupLabel = "Bloco" | "Rua" | "Quadra" | "Torre";
 export type MemberRole = "titular" | "morador";
 export type MemberStatus = "pendente" | "ativo" | "bloqueado";
 export type GateState = "aberto" | "fechado" | "movendo" | "desconhecido";
@@ -40,6 +41,7 @@ export interface Organization {
   email: string | null;
   address: string | null;
   timezone: string;
+  group_label: GroupLabel;
   active: boolean;
   created_at: string;
 }
@@ -48,6 +50,7 @@ export interface Residence {
   id: string;
   org_id: string;
   name: string;
+  block: string | null;
   address: string | null;
   complement: string | null;
   created_at: string;

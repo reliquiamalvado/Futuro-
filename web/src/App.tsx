@@ -20,6 +20,7 @@ import { ApprovalsPage, ResidentsPage } from "./pages/People";
 import ReportsPage from "./pages/Reports";
 import AnnouncementsPage from "./pages/Announcements";
 import AdminsPage from "./pages/Admins";
+import HomeSetupPage from "./pages/HomeSetup";
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const { session, loading } = useAuth();
@@ -62,6 +63,7 @@ export default function App() {
             <Route path="convite/:code" element={<InvitePage />} />
             <Route path="conta" element={<AccountPage />} />
             <Route path="comunicados" element={<AnnouncementsPage />} />
+            <Route path="configurar-casa" element={<HomeSetupPage />} />
             <Route path="aprovacoes" element={<Guard allow={(a) => a.isAdmin || a.isTitular}><ApprovalsPage /></Guard>} />
             <Route path="moradores" element={<Guard allow={(a) => a.isAdmin || a.isTitular}><ResidentsPage /></Guard>} />
             <Route path="relatorios" element={<Guard allow={(a) => a.isAdmin}><ReportsPage /></Guard>} />

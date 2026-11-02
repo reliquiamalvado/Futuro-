@@ -26,7 +26,7 @@ export async function commandStatus(id: string) {
 type RecentCmd = Command & { gates: { name: string } | null; profiles: { full_name: string | null; email: string | null } | null };
 
 export default function Dashboard() {
-  const { profile, memberships, isAdmin, isTitular, adminOrgs } = useAuth();
+  const { profile, memberships, isAdmin, isTitular, adminOrgs, homeOnly } = useAuth();
 
   const gates = useLoad(async () => must(await supabase.rpc("my_gates")) as MyGate[]);
   const recent = useLoad(async () =>
@@ -34,7 +34,7 @@ export default function Dashboard() {
       .select("*, gates(name), profiles:requested_by(full_name, email)")
       .order("created_at", { ascending: false }).limit(8)) as unknown as RecentCmd[]);
   const summary = useLoad(async () => {
-    if (!isAdmin && !isTitular) return null;
+    if ((!isAdmin && !isTitular) || homeOnly) return null;
     const since = new Date(); since.setHours(0, 0, 0, 0);
     const [res, dev, pend, today] = await Promise.all([
       supabase.from("residences").select("id", { count: "exact", head: true }),
@@ -51,20 +51,20 @@ export default function Dashboard() {
       pending: pend.count ?? 0,
       today: today.count ?? 0,
     };
-  }, [isAdmin, isTitular, profile?.id]);
+  }, [isAdmin, isTitular, homeOnly, profile?.id]);
 
   const chart = useLoad(async () => {
-    if (!isAdmin) return null;
+    if (!isAdmin || homeOnly) return null;
     const to = new Date(); to.setHours(0, 0, 0, 0); to.setDate(to.getDate() + 1);
     const from = new Date(to.getTime() - 14 * 86400_000);
     return loadReport(null, from, to);
-  }, [isAdmin]);
+  }, [isAdmin, homeOnly]);
   const activity = useLoad(async () => {
-    if (!isAdmin) return [];
+    if (!isAdmin || homeOnly) return [];
     return must(await supabase.from("audit_logs").select("id, action, severity, created_at, profiles:actor_id(full_name, email)")
       .order("created_at", { ascending: false }).limit(7)) as unknown as
       { id: number; action: string; severity: string; created_at: string; profiles: { full_name: string | null; email: string | null } | null }[];
-  }, [isAdmin]);
+  }, [isAdmin, homeOnly]);
   const unread = useLoad(async () => (profile ? unreadAnnouncements(profile.id) : 0), [profile?.id]);
 
   // Atualiza status dos portões periodicamente.
@@ -82,7 +82,8 @@ export default function Dashboard() {
     <div className="space-y-8">
       <PageHeader
         title={firstName ? `Olá, ${firstName}` : "Início"}
-        subtitle={memberships.filter((m) => m.status === "ativo").map((m) => `${m.residence_name} · ${m.org_name}`).join("  •  ") || undefined}
+        subtitle={memberships.filter((m) => m.status === "ativo")
+          .map((m) => m.residence_name === m.org_name ? m.residence_name : `${m.residence_name} · ${m.org_name}`).join("  •  ") || undefined}
         actions={<Link to="/convite"><Button variant="secondary"><Ticket className="size-4" /> Usar convite</Button></Link>}
       />
 
@@ -97,11 +98,15 @@ export default function Dashboard() {
       {noAccess && pendingMine.length === 0 && (
         <Card className="text-center">
           <Home className="mx-auto mb-3 size-8 text-brand-500" />
-          <h2 className="font-semibold">Vincule-se a uma residência</h2>
+          <h2 className="font-semibold">Como você vai usar o AuggeControl?</h2>
           <p className="mx-auto mt-1 max-w-md text-sm text-slate-500 dark:text-slate-400">
-            Peça ao titular da sua residência ou à administração um código de convite (ou QR Code).
+            Mora em condomínio ou foi convidado pela família? Use o código de convite (ou QR Code).
+            É dono de uma casa? Configure o seu portão em 3 passos.
           </p>
-          <Link to="/convite"><Button className="mt-4">Tenho um convite</Button></Link>
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
+            <Link to="/convite"><Button variant="secondary">Tenho um convite</Button></Link>
+            <Link to="/configurar-casa"><Button>Configurar minha casa</Button></Link>
+          </div>
         </Card>
       )}
 
@@ -125,7 +130,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {isAdmin && (
+      {isAdmin && !homeOnly && (
         <div className="grid gap-6 lg:grid-cols-3">
           <Card className="lg:col-span-2">
             <div className="mb-4 flex items-center justify-between">
@@ -183,7 +188,7 @@ export default function Dashboard() {
                 gate={{
                   id: g.gate_id, name: g.gate_name, mode: g.mode, state: g.state, online: g.online,
                   lastSeen: g.last_seen_at, deviceName: g.device_name, canOperate: g.can_operate,
-                  subtitle: [g.residence_name, g.org_name].filter(Boolean).join(" · "),
+                  subtitle: [...new Set([g.residence_name, g.org_name].filter(Boolean))].join(" · "),
                 }}
                 send={(a) => sendGateCommand(g.gate_id, a)}
                 status={commandStatus}

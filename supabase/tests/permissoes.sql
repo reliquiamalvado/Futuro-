@@ -225,4 +225,40 @@ select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000b
 select pg_temp.ok((select count(*) = 1 from announcement_reads), 'admin vê quem leu');
 select pg_temp.ok((select count(*) >= 2 from audit_logs where action = 'announcements.insert'), 'comunicados ficam na auditoria');
 reset role;
+
+-- ---------- CASAS E AGRUPAMENTOS ----------
+insert into auth.users (id, email, raw_user_meta_data) values
+  ('00000000-0000-0000-0000-000000000011', 'dono@t.com', '{"full_name":"Dono da Casa"}'),
+  ('00000000-0000-0000-0000-000000000012', 'cliente@t.com', '{"full_name":"Cliente"}');
+set role authenticated;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000011', false);
+select (create_home('Casa do João', 'Rua A, 1'))->>'org_id' as home_org, (create_home('Casa de Praia'))->>'org_id' as home2 \gset
+select pg_temp.ok((select count(*) = 2 from residence_members where user_id = auth.uid() and role = 'titular' and status = 'ativo'),
+                  'dono vira titular das próprias casas');
+select pg_temp.ok(is_org_admin(:'home_org'), 'dono administra a própria casa');
+select (r->>'device_id') as hdev from (select create_device(:'home_org', 'ESP32 casa', 'dc-esp32-https') r) x \gset
+insert into gates (org_id, device_id, name) values (:'home_org', :'hdev', 'Portão da garagem') returning id as hgate \gset
+select pg_temp.ok((select count(*) = 1 from gate_residences where gate_id = :'hgate'), 'portão da casa é liberado automaticamente');
+select pg_temp.ok((select count(*) = 1 from my_gates() where gate_id = :'hgate' and can_operate), 'dono já pode acionar o portão');
+select create_home('Casa 3');
+select pg_temp.ok(pg_temp.erro($$select create_home('Casa 4')$$) is not null, 'limite de 3 casas por conta');
+select pg_temp.ok(pg_temp.erro($$select create_home('Outra', null, 'cliente@t.com')$$) is not null, 'usuário comum não cria casa para outra pessoa');
+select pg_temp.ok((select count(*) = 0 from organizations where name = 'Condomínio C'), 'dono de casa não vê condomínios');
+
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', false);
+select (create_home('Casa Cliente', null, 'cliente@t.com'))->>'residence_id' as cres \gset
+select pg_temp.ok((select role = 'titular' from residence_members where residence_id = :'cres'), 'super admin cria casa para cliente');
+
+-- Agrupamentos e comunicados por bloco (Condomínio C: Casa 1 = morador, Casa 2 = titular)
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000b', false);
+update residences set block = 'Bloco A' where name = 'Casa 1' and org_id = :'org_c';
+update residences set block = 'Bloco B' where name = 'Casa 2' and org_id = :'org_c';
+insert into announcements (org_id, block, title, body, created_by) values (:'org_c', 'Bloco A', 'Água', 'Falta de água no Bloco A', auth.uid());
+select pg_temp.ok(pg_temp.erro(format($$insert into announcements (org_id, residence_id, block, title, body, created_by) values (%L, %L, 'Bloco A', 'x', 'y', auth.uid())$$, :'org_c', :'rc1')) is not null,
+                  'comunicado não mistura unidade e bloco');
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000d', false);
+select pg_temp.ok((select count(*) = 1 from announcements where block = 'Bloco A'), 'morador do Bloco A vê o aviso do bloco');
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000c', false);
+select pg_temp.ok((select count(*) = 0 from announcements where block = 'Bloco A'), 'morador do Bloco B não vê o aviso do Bloco A');
+reset role;
 \echo TODOS_OS_TESTES_PASSARAM

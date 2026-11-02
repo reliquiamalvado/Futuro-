@@ -57,14 +57,23 @@ export function useMenuBadges() {
 }
 
 export default function Layout() {
-  const { profile, isSuper, isAdmin, isTitular, roleLabel, signOut } = useAuth();
+  const { profile, isSuper, isAdmin, isTitular, roleLabel, signOut, homeOnly, homeResidenceId } = useAuth();
   const { dark, toggle } = useTheme();
   const nav = useNavigate();
 
   const { pending, unread } = useMenuBadges();
   const manager = isAdmin || isTitular;
 
-  const items: Item[] = [
+  const homeItems: Item[] = [
+    { section: "Casa", to: "/", label: "Início", icon: <Home className="size-5" />, show: true, mobile: "Início" },
+    { section: "Casa", to: homeResidenceId ? `/residencias/${homeResidenceId}` : "/residencias", label: "Minha casa", icon: <Users className="size-5" />, show: manager, mobile: "Casa", badge: pending },
+    { section: "Casa", to: "/chaves", label: "Chaves temporárias", icon: <KeyRound className="size-5" />, show: manager, mobile: "Chaves" },
+    { section: "Casa", to: "/dispositivos", label: "Portões e equipamentos", icon: <Cpu className="size-5" />, show: isAdmin, mobile: "Portões" },
+    { section: "Casa", to: "/historico", label: "Acionamentos", icon: <History className="size-5" />, show: true, mobile: manager ? undefined : "Acionamentos" },
+    { section: "Conta", to: "/conta", label: "Minha conta", icon: <UserCircle2 className="size-5" />, show: true, mobile: "Conta" },
+  ];
+
+  const fullItems: Item[] = [
     { section: "Geral", to: "/", label: isAdmin ? "Dashboard" : "Início", icon: isAdmin ? <LayoutDashboard className="size-5" /> : <Home className="size-5" />, show: true, mobile: "Início" },
     { section: "Geral", to: "/comunicados", label: "Comunicados", icon: <Megaphone className="size-5" />, show: true, mobile: "Avisos", badge: unread },
     { section: "Geral", to: "/historico", label: "Acionamentos", icon: <History className="size-5" />, show: true, mobile: manager ? undefined : "Acionamentos" },
@@ -79,7 +88,7 @@ export default function Layout() {
     { section: "Administração", to: "/organizacoes", label: "Clientes", icon: <Building2 className="size-5" />, show: isSuper },
     { section: "Conta", to: "/conta", label: "Minha conta", icon: <UserCircle2 className="size-5" />, show: true, mobile: "Conta" },
   ];
-  const visible = items.filter((i) => i.show);
+  const visible = (homeOnly ? homeItems : fullItems).filter((i) => i.show);
   const sections = [...new Set(visible.map((i) => i.section))];
 
   const linkCls = ({ isActive }: { isActive: boolean }) =>

@@ -9,6 +9,7 @@ interface Ann {
   id: string;
   org_id: string;
   residence_id: string | null;
+  block: string | null;
   title: string;
   body: string;
   important: boolean;
@@ -72,7 +73,7 @@ export default function AnnouncementsPage() {
                       {!read && <Badge tone="blue">Novo</Badge>}
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge>{a.residences?.name ?? `Todos · ${a.organizations?.name ?? ""}`}</Badge>
+                      <Badge>{a.residences?.name ?? a.block ?? `Todos · ${a.organizations?.name ?? ""}`}</Badge>
                       {canManage(a) && (
                         <Button size="sm" variant="ghost" title="Excluir" onClick={async (e) => {
                           e.stopPropagation();
@@ -115,15 +116,19 @@ function NewAnnouncement({ onClose, onSaved }: { onClose: () => void; onSaved: (
   const [loading, setLoading] = useState(false);
 
   const residences = useLoad(async () =>
-    org ? must(await supabase.from("residences").select("id, name").eq("org_id", org).order("name")) as { id: string; name: string }[] : [],
+    org ? must(await supabase.from("residences").select("id, name, block").eq("org_id", org).order("name")) as { id: string; name: string; block: string | null }[] : [],
   [org]);
+  const blocks = [...new Set((residences.data ?? []).map((r) => r.block).filter(Boolean))] as string[];
 
   async function submit(e: FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError(null);
     const { error } = await supabase.from("announcements").insert({
-      org_id: org, residence_id: res || null, title: title.trim(), body: body.trim(), important, created_by: profile!.id,
+      org_id: org,
+      residence_id: res.startsWith("b:") ? null : res || null,
+      block: res.startsWith("b:") ? res.slice(2) : null,
+      title: title.trim(), body: body.trim(), important, created_by: profile!.id,
     });
     setLoading(false);
     if (error) return setError(errMsg(error));
@@ -144,7 +149,14 @@ function NewAnnouncement({ onClose, onSaved }: { onClose: () => void; onSaved: (
           <Field label="Enviar para">
             <Select value={res} onChange={(e) => setRes(e.target.value)}>
               <option value="">Todos os moradores</option>
-              {(residences.data ?? []).map((r) => <option key={r.id} value={r.id}>Somente {r.name}</option>)}
+              {blocks.length > 0 && (
+                <optgroup label={adminOrgs.find((o) => o.id === org)?.group_label ?? "Bloco"}>
+                  {blocks.map((b) => <option key={b} value={`b:${b}`}>Todo o {b}</option>)}
+                </optgroup>
+              )}
+              <optgroup label="Uma unidade">
+                {(residences.data ?? []).map((r) => <option key={r.id} value={r.id}>Somente {r.block ? `${r.block} · ` : ""}{r.name}</option>)}
+              </optgroup>
             </Select>
           </Field>
         </div>

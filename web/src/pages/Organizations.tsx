@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from "react";
-import { Building2, Pencil, Plus, ShieldCheck, Trash2, UserPlus } from "lucide-react";
+import { Building2, Home, Pencil, Plus, ShieldCheck, Trash2, UserPlus } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
-import { supabase, type OrgKind, type Organization, type Profile } from "../lib/supabase";
+import { supabase, type GroupLabel, type OrgKind, type Organization, type Profile } from "../lib/supabase";
 import { KIND_LABEL, errMsg, fmtDate, must, useLoad } from "../lib/util";
 import { Alert, Badge, Button, Card, Empty, Field, Input, Loading, Modal, PageHeader, Select, Table, Td } from "../components/ui";
 
@@ -21,6 +22,7 @@ export default function OrganizationsPage() {
     must(await supabase.from("profiles").select("*").eq("is_super_admin", true).order("full_name")) as Profile[]);
 
   const [edit, setEdit] = useState<Organization | "new" | null>(null);
+  const [newHome, setNewHome] = useState(false);
   const [admins, setAdmins] = useState<OrgRow | null>(null);
   const [superEmail, setSuperEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -49,7 +51,10 @@ export default function OrganizationsPage() {
       <PageHeader
         title="Clientes"
         subtitle="Empresas, condomínios e residências que contratam a plataforma. Cada cliente só enxerga os próprios dados."
-        actions={<Button onClick={() => setEdit("new")}><Plus className="size-4" /> Novo cliente</Button>}
+        actions={<>
+          <Button variant="secondary" onClick={() => setNewHome(true)}><Home className="size-4" /> Nova casa</Button>
+          <Button onClick={() => setEdit("new")}><Plus className="size-4" /> Novo condomínio / empresa</Button>
+        </>}
       />
       {error && <Alert>{error}</Alert>}
 
@@ -112,6 +117,7 @@ export default function OrganizationsPage() {
 
       {edit && <OrgModal org={edit === "new" ? null : edit} onClose={() => setEdit(null)}
         onSaved={() => { setEdit(null); list.reload(true); refresh(); }} />}
+      {newHome && <NewHomeModal onClose={() => setNewHome(false)} />}
       {admins && <AdminsModal org={admins} onClose={() => setAdmins(null)} onChanged={() => { list.reload(true).then(() => undefined); }} />}
     </div>
   );
@@ -119,7 +125,8 @@ export default function OrganizationsPage() {
 
 function OrgModal({ org, onClose, onSaved }: { org: Organization | null; onClose: () => void; onSaved: () => void }) {
   const [f, setF] = useState({
-    name: org?.name ?? "", kind: (org?.kind ?? "condominio") as OrgKind, document: org?.document ?? "",
+    name: org?.name ?? "", kind: (org?.kind ?? "condominio") as OrgKind, group_label: (org?.group_label ?? "Bloco") as GroupLabel,
+    document: org?.document ?? "",
     email: org?.email ?? "", phone: org?.phone ?? "", address: org?.address ?? "", timezone: org?.timezone ?? "America/Sao_Paulo",
   });
   const [error, setError] = useState<string | null>(null);
@@ -130,7 +137,7 @@ function OrgModal({ org, onClose, onSaved }: { org: Organization | null; onClose
     e.preventDefault();
     setLoading(true);
     const row = {
-      name: f.name.trim(), kind: f.kind, document: f.document || null, email: f.email || null,
+      name: f.name.trim(), kind: f.kind, group_label: f.group_label, document: f.document || null, email: f.email || null,
       phone: f.phone || null, address: f.address || null, timezone: f.timezone,
     };
     const { error } = org
@@ -160,6 +167,13 @@ function OrgModal({ org, onClose, onSaved }: { org: Organization | null; onClose
           </Field>
           <Field label="CNPJ / CPF"><Input value={f.document} onChange={set("document")} /></Field>
         </div>
+        {f.kind !== "residencial" && (
+          <Field label="As unidades são organizadas por" hint="Usado para agrupar as residências e enviar comunicados por grupo.">
+            <Select value={f.group_label} onChange={set("group_label")}>
+              {["Bloco", "Rua", "Quadra", "Torre"].map((g) => <option key={g}>{g}</option>)}
+            </Select>
+          </Field>
+        )}
         <div className="grid grid-cols-2 gap-3">
           <Field label="E-mail"><Input type="email" value={f.email} onChange={set("email")} /></Field>
           <Field label="Telefone"><Input value={f.phone} onChange={set("phone")} /></Field>
@@ -220,6 +234,45 @@ function AdminsModal({ org, onClose, onChanged }: { org: OrgRow; onClose: () => 
           <Button type="submit" className="w-full"><UserPlus className="size-4" /> Adicionar</Button>
         </form>
       </div>
+    </Modal>
+  );
+}
+
+function NewHomeModal({ onClose }: { onClose: () => void }) {
+  const nav = useNavigate();
+  const { refresh } = useAuth();
+  const [name, setName] = useState("");
+  const [address, setAddress] = useState("");
+  const [owner, setOwner] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    const { data, error } = await supabase.rpc("create_home", {
+      p_name: name.trim(), p_address: address.trim() || null, p_owner_email: owner.trim() || null,
+    });
+    setLoading(false);
+    if (error) return setError(errMsg(error));
+    await refresh();
+    nav(`/residencias/${(data as { residence_id: string }).residence_id}`);
+  }
+
+  return (
+    <Modal open onClose={onClose} title="Nova casa (residência comum)">
+      <form onSubmit={submit} className="space-y-4">
+        <Field label="Nome da casa" hint="Ex.: Casa Família Silva">
+          <Input required minLength={2} value={name} onChange={(e) => setName(e.target.value)} />
+        </Field>
+        <Field label="Endereço"><Input value={address} onChange={(e) => setAddress(e.target.value)} /></Field>
+        <Field label="E-mail do dono (opcional)" hint="Se a pessoa já tem conta, ela vira titular e administradora da casa. Se não, deixe em branco e gere um convite de titular na próxima tela.">
+          <Input type="email" value={owner} onChange={(e) => setOwner(e.target.value)} />
+        </Field>
+        {error && <Alert>{error}</Alert>}
+        <Button type="submit" className="w-full" loading={loading}>Criar casa</Button>
+      </form>
     </Modal>
   );
 }

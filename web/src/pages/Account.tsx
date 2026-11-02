@@ -104,6 +104,9 @@ export default function AccountPage() {
             ))}
             {!adminOrgs.length && !memberships.length && <li className="text-slate-500">Nenhum acesso ainda. <Link to="/convite" className="text-brand-500">Usar convite</Link></li>}
           </ul>
+          {!isSuper && (
+            <Link to="/configurar-casa" className="mt-4 inline-block text-sm text-brand-500 hover:underline">+ Configurar uma casa</Link>
+          )}
         </Card>
 
         <Card>
