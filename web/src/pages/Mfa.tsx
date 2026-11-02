@@ -134,7 +134,7 @@ export function TwoFactorCard() {
       </h2>
       <p className="mb-4 text-sm text-slate-500">
         Além da senha, pede um código do seu celular ao entrar. Mesmo que alguém descubra sua senha, não consegue abrir seus portões.
-        {profile?.is_super_admin && <b className="text-amber-600"> Obrigatória para Super Admin.</b>}
+        {profile?.is_super_admin && <b className="text-amber-600"> Muito recomendada para Super Admin, que tem acesso a todos os clientes.</b>}
       </p>
 
       {ok && <div className="mb-4"><Alert tone="green">{ok}</Alert></div>}

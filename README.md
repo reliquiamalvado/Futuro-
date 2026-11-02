@@ -102,9 +102,11 @@ como linhas na tabela `device_drivers`.
 
 ## Segurança
 
-- **Verificação em duas etapas (2FA)** com aplicativo autenticador. Obrigatória para Super Admin
-  (os poderes só valem em sessão com 2FA). Para os demais, quem ativa fica protegido mesmo com a
-  senha vazada: o banco recusa sessões sem o segundo fator.
+- **Verificação em duas etapas (2FA)** com aplicativo autenticador, opcional (recomendada para o
+  Super Admin). Quem ativa fica protegido mesmo com a senha vazada: o banco recusa sessões sem o
+  segundo fator.
+- **Super Admin** tem acesso total: vê e administra todos os clientes e pode acionar qualquer portão
+  (com a mesma confirmação de digital/rosto/senha de abertura; fica destacado na auditoria).
 - **Cabeçalhos de segurança** (`vercel.json`): CSP só com scripts do próprio site, bloqueio de
   iframes (clickjacking), HSTS, `no-referrer` (links de chaves e convites não vazam para outros sites).
 - **Limites de tentativas**: convites inválidos (10/hora por pessoa), registros de falhas de

@@ -300,8 +300,8 @@ select pg_temp.ok((select count(*) = 1 from admin_notifications where kind = 'pe
 set role authenticated;
 select set_config('request.jwt.claim.aal', 'aal1', false);
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', false);
-select pg_temp.ok(not is_super_admin(), 'super admin sem 2FA na sessão perde os poderes');
-select pg_temp.ok((select count(*) = 0 from org_requests), 'sem 2FA o super admin não vê pedidos');
+select pg_temp.ok(not is_super_admin(), 'super admin que ATIVOU 2FA precisa dela na sessão');
+select pg_temp.ok((select count(*) = 0 from org_requests), 'sessão sem o código 2FA não vê pedidos');
 select set_config('request.jwt.claim.aal', 'aal2', false);
 select pg_temp.ok(is_super_admin(), 'super admin com 2FA tem os poderes');
 
@@ -442,5 +442,26 @@ select pg_temp.ok(pg_temp.erro($$insert into webauthn_credentials (id, user_id, 
                   'app não cadastra biometria direto (só pela função que valida)');
 
 -- 8) Chave temporária do visitante continua funcionando sem senha.
+reset role;
+
+-- ---------- SUPER ADMIN COM TODAS AS PERMISSÕES ----------
+reset role;
+delete from auth.mfa_factors where user_id = '00000000-0000-0000-0000-00000000000a';
+insert into gate_pins (user_id, pin_hash) values ('00000000-0000-0000-0000-00000000000a', extensions.crypt('5719', extensions.gen_salt('bf', 4)));
+update commands set created_at = now() - interval '1 minute';
+update devices set last_seen_at = now() where id = '00000000-0000-0000-0000-0000000000c1';
+set role authenticated;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', false);
+select set_config('request.jwt.claim.aal', 'aal1', false);
+select pg_temp.ok(is_super_admin(), 'super admin sem 2FA cadastrada tem todos os poderes');
+select pg_temp.ok((select count(*) >= 1 from organizations where id = :'org_c'), 'super admin vê todos os clientes');
+select pg_temp.ok((select count(*) >= 1 from my_gates() where gate_id = :'gc' and can_operate), 'super admin vê e pode acionar portão de qualquer cliente');
+select pg_temp.ok((select (request_gate_command(:'gc', 'pulso'))->>'confirmacao' = 'necessaria'), 'super admin também precisa da senha de abertura');
+select pg_temp.ok((select (request_gate_command(:'gc', 'pulso', '5719'))->>'ok' = 'true'), 'super admin aciona portão de qualquer cliente com a senha');
+reset role;
+select pg_temp.ok((select count(*) >= 1 from audit_logs where action = 'acionamento.super_admin'), 'acionamento do super admin fica destacado na auditoria');
+set role authenticated;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000e', false);
+select pg_temp.ok((select count(*) = 0 from my_gates()), 'usuário comum continua sem ver portões alheios');
 reset role;
 \echo TODOS_OS_TESTES_PASSARAM

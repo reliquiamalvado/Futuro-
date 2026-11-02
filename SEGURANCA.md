@@ -5,7 +5,7 @@
 | Camada | Proteção |
 |---|---|
 | **Banco (Postgres)** | RLS em 100% das tabelas; cada cliente só vê os próprios dados. Comandos, convites, chaves e cadastros sensíveis passam por funções que validam permissão no servidor. Auditoria imutável (ninguém apaga). Objetos criados no futuro nascem fechados. |
-| **Login** | Supabase Auth (senha com hash, Google OAuth). **2FA (TOTP)**, obrigatória para Super Admin e exigida pelo banco para quem a ativou. Sair de outros aparelhos. |
+| **Login** | Supabase Auth (senha com hash, Google OAuth). **2FA (TOTP)** opcional e exigida pelo banco para quem a ativou (recomendada para o Super Admin, que tem acesso a tudo). Sair de outros aparelhos. |
 | **Equipamentos** | Segredo de 192 bits por equipamento, guardado só como hash (SHA-256). HTTPS com certificado validado no ESP32. IP bloqueado por 10 min após 20 credenciais erradas. |
 | **Funções na nuvem** | `device-api`: autenticação própria + bloqueio de força bruta. `notify-admin`: só aceita chamadas do banco (segredo no Vault, nunca exposto). |
 | **Site** | CSP (só scripts do próprio site), HSTS, anti-clickjacking, `no-referrer` (links de chave/convite não vazam), redirecionamentos só para páginas internas. |
@@ -24,7 +24,7 @@
 
 ## Testes
 
-1. **Permissões (local, 124 verificações):** `PGHOST=... PGPORT=... PGUSER=postgres supabase/tests/rodar.sh`
+1. **Permissões (local, 131 verificações):** `PGHOST=... PGPORT=... PGUSER=postgres supabase/tests/rodar.sh`
 2. **Auditoria em produção (38 verificações, não grava nada):** cole `supabase/tests/auditoria_producao.sql`
    no SQL Editor do Supabase e rode. Tudo deve sair ✅.
 3. **Biometria (12 verificações, autenticador virtual):** `supabase/tests/biometria/rodar.sh`
@@ -45,7 +45,7 @@
 
 ## Checklist do responsável (painéis)
 
-- [ ] 2FA ativa na conta de Super Admin do app
+- [ ] 2FA ativa na conta de Super Admin do app (recomendado: ele vê e aciona tudo)
 - [ ] Client Secret do Google renovado (o anterior apareceu em um print)
 - [ ] Supabase → Authentication: proteção contra senhas vazadas, senha mínima de 8 com letras e números, confirmação de e-mail ligada
 - [ ] 2FA ativa nas contas de Supabase, Vercel, GitHub e Google
