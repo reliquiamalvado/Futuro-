@@ -34,3 +34,11 @@ create table if not exists vault.secrets (id uuid primary key default gen_random
 create or replace view vault.decrypted_secrets as select id, name, secret as decrypted_secret from vault.secrets;
 create or replace function vault.create_secret(p_secret text, p_name text, p_desc text default null) returns uuid
 language sql as $$ insert into vault.secrets (name, secret, description) values (p_name, p_secret, p_desc) returning id $$;
+
+-- Sessões de login (simulado) e session_id no JWT.
+create table if not exists auth.sessions (id uuid primary key, user_id uuid, created_at timestamptz default now());
+create or replace function auth.jwt() returns jsonb language sql stable as $$
+  select jsonb_build_object(
+    'aal', coalesce(nullif(current_setting('request.jwt.claim.aal', true), ''), 'aal1'),
+    'session_id', nullif(current_setting('request.jwt.claim.session_id', true), ''))
+$$;

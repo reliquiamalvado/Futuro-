@@ -8,6 +8,7 @@ import { Alert, Badge, Button, Card, Field, Input, PageHeader } from "../compone
 import { useTheme } from "../components/Layout";
 import { PROFILE_LABEL } from "../components/ProfileChooser";
 import { TwoFactorCard } from "./Mfa";
+import { UnlockSettings } from "./UnlockSettings";
 
 export default function AccountPage() {
   const { profile, session, memberships, adminOrgs, roleLabel, isAdmin, isSuper, isTitular, refresh, signOut } = useAuth();
@@ -67,6 +68,8 @@ export default function AccountPage() {
           ))}
         </Card>
       )}
+
+      <UnlockSettings />
 
       <TwoFactorCard />
 

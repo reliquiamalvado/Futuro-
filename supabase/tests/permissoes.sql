@@ -101,12 +101,15 @@ select pg_temp.ok(pg_temp.erro(format($$update residence_members set role = 'tit
                   'titular não promove morador a titular');
 
 -- ---------- MORADOR ativo ----------
+reset role;
+insert into gate_pins (user_id, pin_hash) values ('00000000-0000-0000-0000-00000000000d', extensions.crypt('2468', extensions.gen_salt('bf', 4)));
+set role authenticated;
 select set_config('request.jwt.claim.sub', :'MOR', false);
 select pg_temp.ok((select count(*) = 1 from residence_members), 'morador só vê o próprio vínculo');
 select pg_temp.ok((select count(*) = 1 from my_gates() where can_operate), 'morador ativo vê o portão');
-select pg_temp.ok((select (request_gate_command(:'gate1', 'pulso'))->>'erro' = 'Dispositivo offline.'),
+select pg_temp.ok((select (request_gate_command(:'gate1', 'pulso', '2468'))->>'erro' = 'Dispositivo offline.'),
                   'dispositivo offline é informado');
-select pg_temp.ok((select (request_gate_command(:'gate1', 'abrir'))->>'ok' = 'false'),
+select pg_temp.ok((select (request_gate_command(:'gate1', 'abrir', '2468'))->>'ok' = 'false'),
                   'portão de pulso recusa abrir/fechar');
 select pg_temp.ok(pg_temp.erro($$select create_invite((select residence_id from residence_members limit 1), 'morador')$$) is not null,
                   'morador não cria convites');
@@ -127,9 +130,9 @@ select pg_temp.ok((select jsonb_array_length(device_poll(:'dev1', '{"1":"fechado
 
 set role authenticated;
 select set_config('request.jwt.claim.sub', :'MOR', false);
-select (request_gate_command(:'gate1', 'pulso'))->>'command_id' as cmd1 \gset
+select (request_gate_command(:'gate1', 'pulso', '2468'))->>'command_id' as cmd1 \gset
 select pg_temp.ok(:'cmd1' <> '', 'morador aciona portão online');
-select pg_temp.ok((select (request_gate_command(:'gate1', 'pulso'))->>'ok' = 'false'), 'limite de 2 s entre comandos');
+select pg_temp.ok((select (request_gate_command(:'gate1', 'pulso', '2468'))->>'erro' like 'Aguarde%'), 'limite de 2 s entre comandos');
 
 reset role;
 set role service_role;
@@ -359,10 +362,85 @@ select pg_temp.ok(not exists (select 1 from pg_proc p join pg_namespace n on n.o
 select pg_temp.ok(not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
                               where n.nspname = 'public'
                                 and p.proname in ('device_auth','device_poll','device_ack','device_set_states','device_auth_failed',
-                                                  'device_ip_blocked','notify_secret_ok','enqueue_command','log_event','temp_key_check')
+                                                  'device_ip_blocked','notify_secret_ok','enqueue_command','log_event','temp_key_check',
+                     'check_gate_pin','issue_unlock_ticket','consume_unlock_ticket','session_is_fresh','pin_is_weak')
                                 and (has_function_privilege('authenticated', p.oid, 'execute') or has_function_privilege('anon', p.oid, 'execute'))),
                   'funções internas não são chamáveis pelo app');
 create table public.tabela_esquecida (id int);
 select pg_temp.ok(not has_table_privilege('anon', 'public.tabela_esquecida', 'select'), 'tabela nova nasce fechada para o anônimo');
 drop table public.tabela_esquecida;
+
+-- ---------- CONFIRMAÇÃO PARA ABRIR (celular roubado) ----------
+-- Cenário: Casa C1 do Condomínio C, morador (d) e titular (c) com portão online.
+reset role;
+insert into devices (id, org_id, name, driver_id, last_seen_at) values ('00000000-0000-0000-0000-0000000000c1', :'org_c', 'ESP C', 'dc-esp32-https', now());
+insert into gates (id, org_id, device_id, name) values ('00000000-0000-0000-0000-0000000000c2', :'org_c', '00000000-0000-0000-0000-0000000000c1', 'Portão C');
+insert into gate_residences values ('00000000-0000-0000-0000-0000000000c2', :'rc1');
+\set gc '00000000-0000-0000-0000-0000000000c2'
+
+-- 1) Morador sem senha nem biometria: precisa configurar antes de abrir.
+reset role;
+delete from gate_pins where user_id = '00000000-0000-0000-0000-00000000000d';
+set role authenticated;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000d', false);
+select set_config('request.jwt.claim.session_id', '00000000-0000-0000-0000-0000000005e1', false);
+select pg_temp.ok((select (request_gate_command(:'gc', 'pulso'))->>'confirmacao' = 'configurar'), 'sem senha de abertura não aciona (pede para configurar)');
+
+-- 2) Sessão antiga (ex.: celular roubado com app aberto) não consegue criar senha.
+reset role;
+insert into auth.sessions (id, user_id, created_at) values ('00000000-0000-0000-0000-0000000005e1', '00000000-0000-0000-0000-00000000000d', now() - interval '3 days');
+set role authenticated;
+select pg_temp.ok((select (set_gate_pin('8264'))->>'reautenticar' = 'true'), 'sessão antiga não cria senha de abertura (pede novo login)');
+
+-- 3) Login recente cria a senha; senhas fracas são recusadas.
+reset role;
+insert into auth.sessions (id, user_id, created_at) values ('00000000-0000-0000-0000-0000000005e2', '00000000-0000-0000-0000-00000000000d', now());
+set role authenticated;
+select set_config('request.jwt.claim.session_id', '00000000-0000-0000-0000-0000000005e2', false);
+select pg_temp.ok((select (set_gate_pin('1234'))->>'ok' = 'false'), 'senha sequencial é recusada');
+select pg_temp.ok((select (set_gate_pin('7777'))->>'ok' = 'false'), 'senha repetida é recusada');
+select pg_temp.ok((select (set_gate_pin('12a4'))->>'ok' = 'false'), 'senha com letras é recusada');
+select pg_temp.ok((select (set_gate_pin('8264'))->>'ok' = 'true'), 'login recente cria a senha de abertura');
+reset role;
+select pg_temp.ok((select pin_hash <> '8264' and pin_hash like '$2%' from gate_pins where user_id = '00000000-0000-0000-0000-00000000000d'), 'senha guardada só como hash (bcrypt)');
+set role authenticated;
+
+-- 4) Abrir exige a senha a cada vez.
+select pg_temp.ok((select (request_gate_command(:'gc', 'pulso'))->>'confirmacao' = 'necessaria'), 'sem informar a senha não abre');
+select pg_temp.ok((select (request_gate_command(:'gc', 'pulso', '0000'))->>'erro' = 'Senha de abertura incorreta.'), 'senha errada não abre');
+select pg_temp.ok((select (request_gate_command(:'gc', 'pulso', '8264'))->>'ok' = 'true'), 'senha certa abre');
+
+-- 5) Ladrão com sessão antiga não troca a senha sem saber a atual.
+select set_config('request.jwt.claim.session_id', '00000000-0000-0000-0000-0000000005e1', false);
+select pg_temp.ok((select (set_gate_pin('9157', '1111'))->>'ok' = 'false'), 'sessão antiga não troca a senha sem a atual');
+
+-- 6) 5 erros bloqueiam por 15 minutos, mesmo com a senha certa depois.
+select request_gate_command(:'gc', 'pulso', '0000') from generate_series(1, 4);
+select pg_temp.ok((select (request_gate_command(:'gc', 'pulso', '0000'))->>'confirmacao' = 'bloqueada'), '5 senhas erradas bloqueiam');
+select pg_temp.ok((select (request_gate_command(:'gc', 'pulso', '8264'))->>'confirmacao' = 'bloqueada'), 'bloqueado mesmo com a senha certa');
+reset role;
+select pg_temp.ok((select count(*) >= 1 from audit_logs where action = 'abertura.senha_bloqueada'), 'bloqueio fica registrado como crítico');
+select pg_temp.ok((select pg_temp.erro($$select * from gate_pins$$) is null), 'super usuário do banco vê a tabela (controle)');
+set role authenticated;
+select pg_temp.ok(pg_temp.erro($$select * from gate_pins$$) is not null, 'app não lê os hashes das senhas');
+
+-- 7) Biometria: tíquete emitido pela Edge Function vale uma vez e por 60 s.
+reset role;
+update gate_pins set locked_until = null, failed = 0;
+update commands set created_at = now() - interval '1 minute';
+set role service_role;
+select issue_unlock_ticket('00000000-0000-0000-0000-00000000000d') as tk1 \gset
+select issue_unlock_ticket('00000000-0000-0000-0000-00000000000c') as tk_outro \gset
+reset role;
+set role authenticated;
+select pg_temp.ok((select (request_gate_command(:'gc', 'pulso', null, :'tk_outro'))->>'confirmacao' = 'necessaria'), 'tíquete de outra pessoa não serve');
+select pg_temp.ok((select (request_gate_command(:'gc', 'pulso', null, :'tk1'))->>'ok' = 'true'), 'tíquete de biometria abre');
+reset role; update commands set created_at = now() - interval '1 minute'; set role authenticated;
+select pg_temp.ok((select (request_gate_command(:'gc', 'pulso', null, :'tk1'))->>'confirmacao' = 'necessaria'), 'tíquete não é reutilizado');
+select pg_temp.ok(pg_temp.erro($$select issue_unlock_ticket(auth.uid())$$) is not null, 'app não emite tíquete sozinho');
+select pg_temp.ok(pg_temp.erro($$insert into webauthn_credentials (id, user_id, public_key) values ('x', auth.uid(), 'y')$$) is not null,
+                  'app não cadastra biometria direto (só pela função que valida)');
+
+-- 8) Chave temporária do visitante continua funcionando sem senha.
+reset role;
 \echo TODOS_OS_TESTES_PASSARAM

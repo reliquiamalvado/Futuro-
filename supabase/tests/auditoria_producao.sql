@@ -57,7 +57,8 @@ select 'catálogo', 'funções internas chamáveis pelo app',
   from pg_proc p join pg_namespace n on n.oid = p.pronamespace
  where n.nspname = 'public'
    and p.proname in ('device_auth','device_poll','device_ack','device_set_states','device_auth_failed',
-                     'device_ip_blocked','notify_secret_ok','enqueue_command','log_event','temp_key_check')
+                     'device_ip_blocked','notify_secret_ok','enqueue_command','log_event','temp_key_check',
+                     'check_gate_pin','issue_unlock_ticket','consume_unlock_ticket','session_is_fresh','pin_is_weak')
    and (has_function_privilege('authenticated', p.oid, 'execute') or has_function_privilege('anon', p.oid, 'execute'))
 union all
 select 'catálogo', 'tabelas no tempo real (realtime)',
@@ -108,7 +109,11 @@ insert into resultado values
  ('logado', 'criar equipamento alheio',    pg_temp.executa($$select public.create_device(gen_random_uuid(), 'x', 'dc-esp32-https')::text$$)),
  ('logado', 'aprovar pedido de cliente',   pg_temp.executa($$select public.review_org_request(gen_random_uuid(), true)::text$$)),
  ('logado', 'apagar auditoria',            pg_temp.executa($$delete from public.audit_logs returning id::text$$)),
- ('logado', 'fingir ser equipamento',      pg_temp.executa($$select public.device_poll(gen_random_uuid(), null, null)::text$$));
+ ('logado', 'fingir ser equipamento',      pg_temp.executa($$select public.device_poll(gen_random_uuid(), null, null)::text$$)),
+ ('logado', 'ler hashes de senha de abertura', pg_temp.tenta('select * from public.gate_pins')),
+ ('logado', 'emitir tíquete de abertura',  pg_temp.executa($$select public.issue_unlock_ticket(auth.uid())$$)),
+ ('logado', 'cadastrar biometria direto',  pg_temp.executa($$insert into public.webauthn_credentials(id, user_id, public_key) values ('x', auth.uid(), 'y') returning id$$)),
+ ('logado', 'criar senha com sessão antiga', (select case when (public.set_gate_pin('8264'))->>'ok' = 'true' then 'FALHA: criou' else 'BLOQUEADO (pede novo login)' end)));
 reset role;
 
 select grupo, teste, resultado,

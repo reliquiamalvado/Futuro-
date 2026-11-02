@@ -2,22 +2,16 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Activity, Cpu, DoorClosed, Home, KeyRound, Megaphone, ShieldAlert, Ticket, UserCheck, Wifi } from "lucide-react";
 import { useAuth } from "../lib/auth";
-import { supabase, type AccountType, type Command, type GateAction, type MyGate } from "../lib/supabase";
+import { supabase, type AccountType, type Command, type MyGate } from "../lib/supabase";
 import { ACTION_LABEL, CMD_LABEL, fmtAgo, must, useLoad } from "../lib/util";
 import { Alert, Badge, Button, Card, Empty, Loading, PageHeader, Stat } from "../components/ui";
 import { GateCard } from "../components/GateCard";
+import { useConfirmedGateCommand } from "../components/UnlockProvider";
 import { DailyBars } from "../components/Charts";
 import { loadReport } from "./Reports";
 import { unreadAnnouncements } from "./Announcements";
 import { describeAudit } from "./Audit";
 import { PROFILE_LABEL, PROFILE_OPTIONS, ProfileChooser, nextPathFor } from "../components/ProfileChooser";
-
-export async function sendGateCommand(gateId: string, action: GateAction): Promise<string> {
-  const r = must(await supabase.rpc("request_gate_command", { p_gate: gateId, p_action: action })) as
-    { ok: boolean; erro?: string; command_id?: string };
-  if (!r.ok || !r.command_id) throw new Error(r.erro ?? "Falha ao enviar comando.");
-  return r.command_id;
-}
 
 export async function commandStatus(id: string) {
   const { data } = await supabase.from("commands").select("status, error").eq("id", id).maybeSingle();
@@ -28,6 +22,7 @@ type RecentCmd = Command & { gates: { name: string } | null; profiles: { full_na
 
 export default function Dashboard() {
   const { profile, memberships, isAdmin, isTitular, adminOrgs, homeOnly, superNeedsMfa } = useAuth();
+  const confirmedCommand = useConfirmedGateCommand();
 
   const gates = useLoad(async () => must(await supabase.rpc("my_gates")) as MyGate[]);
   const recent = useLoad(async () =>
@@ -188,7 +183,7 @@ export default function Dashboard() {
                   lastSeen: g.last_seen_at, deviceName: g.device_name, canOperate: g.can_operate,
                   subtitle: [...new Set([g.residence_name, g.org_name].filter(Boolean))].join(" · "),
                 }}
-                send={(a) => sendGateCommand(g.gate_id, a)}
+                send={(a) => confirmedCommand(g.gate_id, g.gate_name, a)}
                 status={commandStatus}
                 onDone={() => { gates.reload(true); recent.reload(true); summary.reload(true); }}
               />

@@ -25,6 +25,7 @@ import AdminsPage from "./pages/Admins";
 import HomeSetupPage from "./pages/HomeSetup";
 import OrgRequestPage from "./pages/OrgRequest";
 import { MfaVerifyPage } from "./pages/Mfa";
+import { UnlockProvider } from "./components/UnlockProvider";
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const { session, loading, needsMfa } = useAuth();
@@ -74,7 +75,7 @@ export default function App() {
           <Route path="/privacidade" element={<PrivacyPage />} />
           <Route path="/termos" element={<TermsPage />} />
 
-          <Route element={<RequireAuth><Layout /></RequireAuth>}>
+          <Route element={<RequireAuth><UnlockProvider><Layout /></UnlockProvider></RequireAuth>}>
             <Route index element={<Dashboard />} />
             <Route path="historico" element={<HistoryPage />} />
             <Route path="convite" element={<InvitePage />} />

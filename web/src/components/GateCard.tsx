@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ArrowDownToLine, ArrowUpFromLine, CheckCircle2, Power, Wifi, WifiOff, XCircle } from "lucide-react";
 import type { CommandStatus, GateAction, GateMode, GateState } from "../lib/supabase";
 import { STATE_LABEL, errMsg, fmtAgo } from "../lib/util";
+import { CancelledError } from "../lib/unlock";
 import { Badge, Card, Spinner, cx } from "./ui";
 
 export interface GateView {
@@ -54,6 +55,7 @@ export function GateCard({ gate, send, status, onDone }: {
       }
       setPhase({ kind: "err", msg: "Sem confirmação do equipamento." });
     } catch (e) {
+      if (e instanceof CancelledError) { setPhase({ kind: "idle" }); return; }
       setPhase({ kind: "err", msg: errMsg(e) });
     }
     onDone?.();
