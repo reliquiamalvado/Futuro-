@@ -1,8 +1,7 @@
 // AuggeControl - entrega notificações ao dono da plataforma por WhatsApp.
 //
 // Chamada pelo banco (gatilho em admin_notifications) com { "id": "<uuid>" }.
-// Só envia notificações ainda pendentes, então chamadas repetidas ou de
-// terceiros não geram mensagens extras.
+// Exige o segredo enviado pelo banco (Vault) e só envia notificações pendentes.
 //
 // Canais (configure os segredos em Edge Functions → Secrets):
 //   CallMeBot (gratuito, para o seu próprio número):
@@ -62,6 +61,10 @@ async function viaMeta(text: string): Promise<void> {
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json(405, { error: "use POST" });
+
+  // Só o próprio banco chama esta função: ele envia o segredo guardado no Vault.
+  const { data: authorized } = await db.rpc("notify_secret_ok", { p_secret: req.headers.get("x-notify-secret") ?? "" });
+  if (authorized !== true) return json(401, { error: "não autorizado" });
   let id = "";
   try {
     id = String((await req.json())?.id ?? "");

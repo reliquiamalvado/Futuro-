@@ -57,6 +57,8 @@ function cleanInfo(raw: unknown): Record<string, string | number> {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+const clientIp = (req: Request) => req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "";
+
 async function authenticate(req: Request): Promise<string | null> {
   const id = req.headers.get("x-device-id") ?? "";
   const auth = req.headers.get("authorization") ?? "";
@@ -66,8 +68,7 @@ async function authenticate(req: Request): Promise<string | null> {
   const { data, error } = await db.rpc("device_auth", { p_device: id, p_secret: secret });
   if (error) throw error;
   if (data !== true) {
-    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "";
-    await db.rpc("device_auth_failed", { p_device: id, p_ip: ip });
+    await db.rpc("device_auth_failed", { p_device: id, p_ip: clientIp(req) });
     return null;
   }
   return id;
@@ -124,6 +125,10 @@ Deno.serve(async (req) => {
   const route = new URL(req.url).pathname.split("/").filter(Boolean).pop();
 
   try {
+    // Força bruta: IP com muitas credenciais erradas fica bloqueado por 10 minutos.
+    const { data: blocked } = await db.rpc("device_ip_blocked", { p_ip: clientIp(req) });
+    if (blocked === true) return json(429, { error: "muitas tentativas, aguarde" });
+
     const deviceId = await authenticate(req);
     if (!deviceId) return json(401, { error: "não autorizado" });
 

@@ -9,7 +9,8 @@ const fmtDia = (d: string) => {
 };
 
 /** Barras empilhadas por dia: executados (azul) e falhas (vermelho). */
-export function DailyBars({ data, height = 180 }: { data: DayPoint[]; height?: number }) {
+export function DailyBars({ data: raw, height = 180 }: { data: DayPoint[] | null | undefined; height?: number }) {
+  const data = Array.isArray(raw) ? raw : [];
   const [hover, setHover] = useState<number | null>(null);
   const [table, setTable] = useState(false);
   const max = Math.max(1, ...data.map((d) => d.sucesso + d.falha));
@@ -93,9 +94,10 @@ export function DailyBars({ data, height = 180 }: { data: DayPoint[]; height?: n
 }
 
 /** Ranking horizontal de uma série (ex.: portões mais acionados). */
-export function RankBars({ items, empty = "Sem dados no período." }: {
-  items: { nome: string; total: number; falha?: number }[]; empty?: string;
+export function RankBars({ items: raw, empty = "Sem dados no período." }: {
+  items: { nome: string; total: number; falha?: number }[] | null | undefined; empty?: string;
 }) {
+  const items = Array.isArray(raw) ? raw : [];
   if (!items.length) return <p className="text-sm text-slate-500">{empty}</p>;
   const max = Math.max(...items.map((i) => i.total));
   return (

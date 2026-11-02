@@ -8,6 +8,7 @@ import { useAuth } from "../lib/auth";
 import { supabase } from "../lib/supabase";
 import { unreadAnnouncements } from "../pages/Announcements";
 import { cx } from "./ui";
+import { ErrorBoundary } from "./ErrorBoundary";
 
 export function useTheme() {
   const [dark, setDark] = useState(() => document.documentElement.classList.contains("dark"));
@@ -65,6 +66,7 @@ export default function Layout() {
   const { profile, isSuper, isAdmin, isTitular, roleLabel, signOut, homeOnly, homeResidenceId } = useAuth();
   const { dark, toggle } = useTheme();
   const nav = useNavigate();
+  const loc = useLocation();
 
   const { pending, unread, requests } = useMenuBadges();
   const manager = isAdmin || isTitular;
@@ -156,7 +158,9 @@ export default function Layout() {
       </header>
 
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-28 pt-6 sm:px-6 lg:px-10 lg:pb-10 lg:pt-8">
-        <Outlet />
+        <ErrorBoundary resetKey={loc.pathname}>
+          <Outlet />
+        </ErrorBoundary>
       </main>
 
       {/* Navegação inferior (celular) */}

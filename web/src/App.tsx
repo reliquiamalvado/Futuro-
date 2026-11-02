@@ -2,6 +2,8 @@ import type { ReactNode } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./lib/auth";
 import { Loading } from "./components/ui";
+import { safePath } from "./lib/util";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import Layout from "./components/Layout";
 import { ForgotPasswordPage, LoginPage, ResetPasswordPage, SignupPage } from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
@@ -45,7 +47,7 @@ function PublicOnly({ children }: { children: ReactNode }) {
   const { session, loading } = useAuth();
   const loc = useLocation();
   if (loading) return <Loading />;
-  if (session) return <Navigate to={(loc.state as { from?: string } | null)?.from ?? "/"} replace />;
+  if (session) return <Navigate to={safePath((loc.state as { from?: string } | null)?.from)} replace />;
   return <>{children}</>;
 }
 
@@ -60,6 +62,7 @@ function MfaGate() {
 export default function App() {
   return (
     <BrowserRouter>
+      <ErrorBoundary>
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<PublicOnly><LoginPage /></PublicOnly>} />
@@ -94,6 +97,7 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthProvider>
+      </ErrorBoundary>
     </BrowserRouter>
   );
 }

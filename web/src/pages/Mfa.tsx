@@ -4,7 +4,7 @@ import { ShieldCheck, Smartphone, Trash2 } from "lucide-react";
 import type { Factor } from "@supabase/supabase-js";
 import { useAuth } from "../lib/auth";
 import { supabase } from "../lib/supabase";
-import { errMsg, fmtDate } from "../lib/util";
+import { errMsg, fmtDate, safePath } from "../lib/util";
 import { Alert, Badge, Button, Card, CopyButton, Field, Input } from "../components/ui";
 import { Logo } from "../components/Layout";
 
@@ -36,7 +36,7 @@ export function MfaVerifyPage() {
     }
     await refresh();
     setLoading(false);
-    nav(sessionStorage.getItem("dc.voltar") || "/", { replace: true });
+    nav(safePath(sessionStorage.getItem("dc.voltar")), { replace: true });
   }
 
   return (

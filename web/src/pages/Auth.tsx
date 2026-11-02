@@ -2,7 +2,7 @@ import { useState, type FormEvent, type ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { supabase, type AccountType } from "../lib/supabase";
 import { PROFILE_LABEL, ProfileChooser, nextPathFor } from "../components/ProfileChooser";
-import { errMsg } from "../lib/util";
+import { errMsg, safePath } from "../lib/util";
 import { Alert, Button, Field, Input } from "../components/ui";
 import { Logo } from "../components/Layout";
 
@@ -52,7 +52,7 @@ function GoogleButton() {
           setError(null);
           const { error } = await supabase.auth.signInWithOAuth({
             provider: "google",
-            options: { redirectTo: window.location.origin + (sessionStorage.getItem("dc.voltar") ?? "/") },
+            options: { redirectTo: window.location.origin + safePath(sessionStorage.getItem("dc.voltar")) },
           });
           if (error) { setError(errMsg(error)); setLoading(false); }
         }}
@@ -81,7 +81,7 @@ function Divider() {
 export function LoginPage() {
   const nav = useNavigate();
   const loc = useLocation();
-  const from = (loc.state as { from?: string } | null)?.from ?? "/";
+  const from = safePath((loc.state as { from?: string } | null)?.from);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -134,7 +134,8 @@ export function SignupPage() {
   const nav = useNavigate();
 
   // Quem veio por um link de convite já sabe o caminho.
-  const from = (loc.state as { from?: string } | null)?.from;
+  const rawFrom = (loc.state as { from?: string } | null)?.from;
+  const from = rawFrom ? safePath(rawFrom) : undefined;
   const target = from && from !== "/" ? from : nextPathFor(type);
 
   function choose(t: AccountType) {

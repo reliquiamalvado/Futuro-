@@ -329,4 +329,40 @@ set role service_role;
 select device_auth_failed('00000000-0000-0000-0000-000000000099', '1.2.3.4') from generate_series(1, 40);
 reset role;
 select pg_temp.ok((select count(*) = 20 from audit_logs where details->>'ip' = '1.2.3.4'), 'falhas de equipamento: registra no máximo 20 por IP');
+
+-- ---------- BLINDAGEM ----------
+select decrypted_secret as notify_secret from vault.decrypted_secrets where name = 'notify_admin_secret' \gset
+set role service_role;
+select pg_temp.ok(device_ip_blocked('1.2.3.4'), 'IP com 20 falhas de equipamento fica bloqueado');
+select pg_temp.ok(not device_ip_blocked('5.6.7.8'), 'outros IPs continuam liberados');
+select pg_temp.ok(not notify_secret_ok('chute'), 'segredo errado de notificação é recusado');
+select pg_temp.ok(notify_secret_ok(:'notify_secret'),
+                  'segredo certo de notificação é aceito');
+reset role;
+select pg_temp.ok((select (body is not null) from net.chamadas order by criado desc limit 1), 'notificação continua sendo disparada');
+
+-- Varredura do catálogo: nada aberto por engano.
+select pg_temp.ok(not exists (select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace
+                              where n.nspname = 'public' and c.relkind = 'r' and not c.relrowsecurity),
+                  'todas as tabelas têm RLS');
+select pg_temp.ok(not exists (select 1 from information_schema.role_table_grants
+                              where table_schema = 'public' and grantee = 'anon'),
+                  'anônimo não tem acesso a nenhuma tabela');
+select pg_temp.ok(not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                              where n.nspname = 'public' and has_function_privilege('anon', p.oid, 'execute')
+                                and p.proname not in ('guest_key_info','guest_request_command','guest_command_status')),
+                  'anônimo só executa as funções de chave temporária');
+select pg_temp.ok(not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                              where n.nspname = 'public' and p.prosecdef
+                                and not exists (select 1 from unnest(coalesce(p.proconfig, '{}')) c where c like 'search_path=%')),
+                  'toda função privilegiada tem search_path fixo');
+select pg_temp.ok(not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                              where n.nspname = 'public'
+                                and p.proname in ('device_auth','device_poll','device_ack','device_set_states','device_auth_failed',
+                                                  'device_ip_blocked','notify_secret_ok','enqueue_command','log_event','temp_key_check')
+                                and (has_function_privilege('authenticated', p.oid, 'execute') or has_function_privilege('anon', p.oid, 'execute'))),
+                  'funções internas não são chamáveis pelo app');
+create table public.tabela_esquecida (id int);
+select pg_temp.ok(not has_table_privilege('anon', 'public.tabela_esquecida', 'select'), 'tabela nova nasce fechada para o anônimo');
+drop table public.tabela_esquecida;
 \echo TODOS_OS_TESTES_PASSARAM

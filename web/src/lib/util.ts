@@ -78,3 +78,15 @@ export const CMD_LABEL = {
 } as const;
 export const ACTION_LABEL = { abrir: "Abrir", fechar: "Fechar", pulso: "Acionar" } as const;
 export const WEEKDAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+
+/** Só aceita caminhos internos do app (evita redirecionar para sites externos). */
+export function safePath(p: unknown, fallback = "/"): string {
+  if (typeof p !== "string") return fallback;
+  if (!p.startsWith("/") || p.startsWith("//") || p.includes("\\") || /[\u0000-\u001f]/.test(p)) return fallback;
+  try {
+    const u = new URL(p, window.location.origin);
+    return u.origin === window.location.origin ? u.pathname + u.search + u.hash : fallback;
+  } catch {
+    return fallback;
+  }
+}

@@ -27,3 +27,10 @@ create table if not exists auth.mfa_factors (id uuid primary key default gen_ran
 create or replace function auth.jwt() returns jsonb language sql stable as
   $$ select jsonb_build_object('aal', coalesce(nullif(current_setting('request.jwt.claim.aal', true), ''), 'aal1')) $$;
 grant execute on function auth.jwt() to anon, authenticated, service_role;
+
+-- Vault (simulado).
+create schema if not exists vault;
+create table if not exists vault.secrets (id uuid primary key default gen_random_uuid(), name text unique, secret text, description text);
+create or replace view vault.decrypted_secrets as select id, name, secret as decrypted_secret from vault.secrets;
+create or replace function vault.create_secret(p_secret text, p_name text, p_desc text default null) returns uuid
+language sql as $$ insert into vault.secrets (name, secret, description) values (p_name, p_secret, p_desc) returning id $$;
