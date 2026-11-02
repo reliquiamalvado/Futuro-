@@ -83,9 +83,9 @@ export default function TempKeysPage() {
                   <Badge>{k.gate_ids.map((id) => gates.data?.find((g) => g.id === id)?.name ?? "portão").join(", ")}</Badge>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {st.label !== "Revogada" && <Button size="sm" variant="secondary" onClick={() => setShow(k)}><QrCode className="size-4" /> Compartilhar</Button>}
+                  {(st.label === "Ativa" || st.label === "Agendada") && <Button size="sm" variant="secondary" onClick={() => setShow(k)}><QrCode className="size-4" /> Compartilhar</Button>}
                   <Button size="sm" variant="ghost" onClick={() => setUsage(k)}>Utilização</Button>
-                  {!k.revoked_at && (
+                  {(st.label === "Ativa" || st.label === "Agendada") && (
                     <Button size="sm" variant="ghost" className="text-red-600"
                       onClick={async () => {
                         if (!confirm("Revogar esta chave? Ela deixa de funcionar imediatamente.")) return;
