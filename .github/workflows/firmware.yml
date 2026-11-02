@@ -1,0 +1,67 @@
+# Compila o firmware do ESP32 e publica o arquivo para a gravação pelo navegador
+# (página "Instalar equipamento" do app usa web/public/firmware/manifest.json).
+name: Firmware ESP32
+
+on:
+  push:
+    paths:
+      - "firmware/auggecontrol-esp32/**"
+      - ".github/workflows/firmware.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: firmware-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compilar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: arduino/setup-arduino-cli@v2
+
+      - name: Instalar placa ESP32 e bibliotecas
+        run: |
+          arduino-cli config init
+          arduino-cli config add board_manager.additional_urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          arduino-cli core update-index
+          arduino-cli core install esp32:esp32
+          arduino-cli lib install "ArduinoJson"
+          arduino-cli core list
+          arduino-cli lib list
+
+      - name: Compilar
+        run: |
+          arduino-cli compile --fqbn esp32:esp32:esp32 --warnings default \
+            --export-binaries --output-dir build firmware/auggecontrol-esp32
+          ls -la build
+
+      - name: Publicar o arquivo no app
+        run: |
+          VERSAO=$(grep -oP 'FIRMWARE_VERSAO "\K[^"]+' firmware/auggecontrol-esp32/auggecontrol-esp32.ino)
+          mkdir -p web/public/firmware
+          cp build/auggecontrol-esp32.ino.merged.bin web/public/firmware/auggecontrol-esp32.bin
+          cat > web/public/firmware/manifest.json <<JSON
+          {
+            "name": "AuggeControl ESP32",
+            "version": "$VERSAO",
+            "new_install_prompt_erase": true,
+            "builds": [
+              { "chipFamily": "ESP32", "parts": [{ "path": "auggecontrol-esp32.bin", "offset": 0 }] }
+            ]
+          }
+          JSON
+          git config user.name "AuggeControl CI"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add web/public/firmware
+          if git diff --cached --quiet; then
+            echo "Firmware sem mudanças."
+          else
+            git commit -m "Firmware ESP32 compilado (v$VERSAO)"
+            git pull --rebase origin "${GITHUB_REF_NAME}"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi

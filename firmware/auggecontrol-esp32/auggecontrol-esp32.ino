@@ -1,121 +1,314 @@
-// AuggeControl - firmware para ESP32 + módulo relé.
+// AuggeControl - firmware para ESP32 + relé.
 //
-// O ESP32 conecta para fora (HTTPS) na API do AuggeControl e fica aguardando
-// comandos por long-polling. Não é preciso abrir portas no roteador.
+// Não é preciso editar código:
+//  1. Grave pelo navegador (página "Instalar equipamento" do app).
+//  2. Na primeira vez, o ESP32 cria a rede Wi-Fi "AuggeControl-XXXX".
+//     Conecte o celular nela: abre uma página para escolher o Wi-Fi da casa
+//     e digitar o código de pareamento mostrado no app.
+//  3. Pronto: o equipamento conecta na nuvem e recebe comandos (HTTPS, long-polling).
 //
-// Bibliotecas: placa "esp32" da Espressif (2.x ou 3.x) e ArduinoJson 7.x.
+// Para refazer a configuração: segure o botão BOOT da placa por 5 segundos.
+//
+// Bibliotecas: placa "esp32" da Espressif (3.x) e ArduinoJson 7.x.
 
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
+#include <WebServer.h>
+#include <DNSServer.h>
+#include <Preferences.h>
 #include <ArduinoJson.h>
 #include <time.h>
 
-#if __has_include("config.h")
-#include "config.h"
-#else
-#error "Crie o arquivo config.h a partir de config.exemplo.h"
-#endif
-
 #include "certificados.h"
 
-#define FIRMWARE_VERSAO "1.0.0"
+#if __has_include("config.h")
+#include "config.h"   // opcional: só para desenvolvimento (outra URL de API etc.)
+#endif
 
-static const int RELES[] = RELE_PINOS;
-static const int SENS_ABERTO[] = SENSOR_ABERTO_PINOS;
-static const int SENS_FECHADO[] = SENSOR_FECHADO_PINOS;
-static const int N_RELES = sizeof(RELES) / sizeof(RELES[0]);
-static const int N_SENS = sizeof(SENS_ABERTO) / sizeof(SENS_ABERTO[0]);
+#ifndef DC_API_URL
+#define DC_API_URL "https://miqjabshccauhvzcqzle.supabase.co/functions/v1/device-api"
+#endif
 
-static const int NIVEL_LIGADO = RELE_ATIVO_EM_BAIXO ? LOW : HIGH;
-static const int NIVEL_DESLIGADO = RELE_ATIVO_EM_BAIXO ? HIGH : LOW;
+#define FIRMWARE_VERSAO "2.0.0"
+#define PINO_BOOT 0              // botão BOOT das placas ESP32
+#define MAX_RELES 4
 
+Preferences prefs;
 WiFiClientSecure tls;
-unsigned long esperaErro = 2000;  // backoff em caso de falha
+WebServer portal(80);
+DNSServer dns;
 
-// ---------------------------------------------------------------- relés
+struct Config {
+  String ssid, senha, deviceId, segredo;
+  int reles[MAX_RELES] = {26, 27, 25, 33};
+  int sensorFechado[MAX_RELES] = {-1, -1, -1, -1};
+  bool ativoEmBaixo = true;
+} cfg;
+
+bool modoConfiguracao = false;
+unsigned long esperaErro = 2000;
+int falhas401 = 0;
+
+// ------------------------------------------------------------- configuração salva
+
+void lerLista(const String& texto, int* destino, int padrao) {
+  for (int i = 0; i < MAX_RELES; i++) destino[i] = padrao;
+  int i = 0, ini = 0;
+  while (i < MAX_RELES && ini <= (int)texto.length()) {
+    int fim = texto.indexOf(',', ini);
+    if (fim < 0) fim = texto.length();
+    String parte = texto.substring(ini, fim);
+    parte.trim();
+    if (parte.length()) destino[i] = parte.toInt();
+    i++;
+    ini = fim + 1;
+  }
+}
+
+void carregarConfig() {
+  prefs.begin("augge", true);
+  cfg.ssid = prefs.getString("ssid", "");
+  cfg.senha = prefs.getString("senha", "");
+  cfg.deviceId = prefs.getString("dev", "");
+  cfg.segredo = prefs.getString("seg", "");
+  cfg.ativoEmBaixo = prefs.getBool("baixo", true);
+  String reles = prefs.getString("reles", "26,27,25,33");
+  String sens = prefs.getString("sensF", "-1,-1,-1,-1");
+  prefs.end();
+  lerLista(reles, cfg.reles, -1);
+  lerLista(sens, cfg.sensorFechado, -1);
+}
+
+void apagarConfig() {
+  prefs.begin("augge", false);
+  prefs.clear();
+  prefs.end();
+}
+
+// ------------------------------------------------------------- relés e sensores
+
+int nivelLigado() { return cfg.ativoEmBaixo ? LOW : HIGH; }
+int nivelDesligado() { return cfg.ativoEmBaixo ? HIGH : LOW; }
+
+void prepararPinos() {
+  for (int i = 0; i < MAX_RELES; i++) {
+    if (cfg.reles[i] < 0) continue;
+    digitalWrite(cfg.reles[i], nivelDesligado());  // nível seguro antes de virar saída
+    pinMode(cfg.reles[i], OUTPUT);
+  }
+  for (int i = 0; i < MAX_RELES; i++)
+    if (cfg.sensorFechado[i] >= 0) pinMode(cfg.sensorFechado[i], INPUT_PULLUP);
+  pinMode(PINO_BOOT, INPUT_PULLUP);
+}
 
 bool pulso(int canal, int ms) {
-  if (canal < 1 || canal > N_RELES) return false;
-  int pino = RELES[canal - 1];
-  digitalWrite(pino, NIVEL_LIGADO);
+  if (canal < 1 || canal > MAX_RELES || cfg.reles[canal - 1] < 0) return false;
+  int pino = cfg.reles[canal - 1];
+  digitalWrite(pino, nivelLigado());
   delay(constrain(ms, 100, 10000));
-  digitalWrite(pino, NIVEL_DESLIGADO);
+  digitalWrite(pino, nivelDesligado());
   return true;
 }
 
-// ---------------------------------------------------------------- sensores
-
-const char* estadoCanal(int i) {
-  int a = i < N_SENS ? SENS_ABERTO[i] : -1;
-  int f = i < N_SENS ? SENS_FECHADO[i] : -1;
-  if (a < 0 && f < 0) return nullptr;
-  bool aberto = a >= 0 && digitalRead(a) == LOW;
-  bool fechado = f >= 0 && digitalRead(f) == LOW;
-  if (fechado && !aberto) return "fechado";
-  if (aberto && !fechado) return "aberto";
-  if (a >= 0 && f >= 0 && !aberto && !fechado) return "movendo";
-  if (f >= 0 && a < 0) return fechado ? "fechado" : "aberto";
-  if (a >= 0 && f < 0) return aberto ? "aberto" : "fechado";
-  return "desconhecido";
-}
-
 void preencherEstados(JsonObject estados) {
-  for (int i = 0; i < N_RELES; i++) {
-    const char* e = estadoCanal(i);
-    if (e) estados[String(i + 1)] = e;
+  for (int i = 0; i < MAX_RELES; i++) {
+    int f = cfg.sensorFechado[i];
+    if (f < 0) continue;
+    estados[String(i + 1)] = digitalRead(f) == LOW ? "fechado" : "aberto";
   }
 }
 
-// ---------------------------------------------------------------- rede
-
-void conectarWifi() {
-  if (WiFi.status() == WL_CONNECTED) return;
-  Serial.printf("Conectando ao Wi-Fi \"%s\"", WIFI_SSID);
-  WiFi.mode(WIFI_STA);
-  WiFi.setAutoReconnect(true);
-  WiFi.begin(WIFI_SSID, WIFI_SENHA);
+// Segurar BOOT por 5 s apaga a configuração e volta ao modo de configuração.
+void verificarBotaoReset() {
+  if (digitalRead(PINO_BOOT) != LOW) return;
   unsigned long inicio = millis();
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-    if (millis() - inicio > 30000) {
-      Serial.println("\nSem Wi-Fi. Reiniciando...");
+  while (digitalRead(PINO_BOOT) == LOW) {
+    if (millis() - inicio > 5000) {
+      Serial.println("Botão BOOT por 5 s: apagando configuração...");
+      apagarConfig();
+      delay(300);
       ESP.restart();
     }
+    delay(20);
   }
-  Serial.printf("\nWi-Fi conectado. IP %s, sinal %d dBm\n", WiFi.localIP().toString().c_str(), WiFi.RSSI());
 }
 
-// A validação do certificado HTTPS precisa do relógio certo.
+// ------------------------------------------------------------- rede e nuvem
+
+bool conectarWifi(const String& ssid, const String& senha, unsigned long limiteMs) {
+  WiFi.begin(ssid.c_str(), senha.c_str());
+  unsigned long inicio = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - inicio < limiteMs) {
+    delay(300);
+    Serial.print(".");
+  }
+  Serial.println();
+  return WiFi.status() == WL_CONNECTED;
+}
+
 void sincronizarRelogio() {
   configTime(0, 0, "pool.ntp.org", "time.google.com");
-  Serial.print("Sincronizando relógio");
   time_t agora = time(nullptr);
   unsigned long inicio = millis();
   while (agora < 1700000000 && millis() - inicio < 20000) {
     delay(300);
-    Serial.print(".");
     agora = time(nullptr);
   }
-  Serial.println(agora >= 1700000000 ? " ok" : " falhou (tentando mesmo assim)");
+  Serial.println(agora >= 1700000000 ? "Relógio sincronizado" : "Relógio não sincronizou (tentando mesmo assim)");
 }
 
-// Faz POST na API. Retorna o código HTTP (ou negativo em erro de conexão).
-int postar(const char* rota, const String& corpo, String& resposta, uint16_t timeoutMs) {
+// POST na API. Retorna o código HTTP (negativo em erro de conexão).
+int postar(const char* rota, const String& corpo, String& resposta, uint16_t timeoutMs, bool autenticar) {
   HTTPClient http;
   String url = String(DC_API_URL) + "/" + rota;
   if (!http.begin(tls, url)) return -1;
   http.setTimeout(timeoutMs);
   http.setConnectTimeout(10000);
   http.addHeader("Content-Type", "application/json");
-  http.addHeader("X-Device-Id", DC_DEVICE_ID);
-  http.addHeader("Authorization", String("Device ") + DC_SECRET);
+  if (autenticar) {
+    http.addHeader("X-Device-Id", cfg.deviceId);
+    http.addHeader("Authorization", String("Device ") + cfg.segredo);
+  }
   int codigo = http.POST(corpo);
   if (codigo > 0) resposta = http.getString();
   http.end();
   return codigo;
 }
+
+// ------------------------------------------------------------- modo configuração (portal)
+
+String nomeRede() {
+  uint8_t mac[6];
+  WiFi.macAddress(mac);
+  char s[24];
+  snprintf(s, sizeof(s), "AuggeControl-%02X%02X", mac[4], mac[5]);
+  return String(s);
+}
+
+String escapar(const String& t) {
+  String o;
+  for (size_t i = 0; i < t.length(); i++) {
+    char c = t[i];
+    if (c == '&') o += "&amp;"; else if (c == '<') o += "&lt;"; else if (c == '>') o += "&gt;";
+    else if (c == '"') o += "&quot;"; else o += c;
+  }
+  return o;
+}
+
+const char ESTILO[] PROGMEM = R"CSS(
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+body{font-family:system-ui,-apple-system,sans-serif;background:#0a0f1e;color:#f1f5f9;margin:0;padding:20px}
+.c{max-width:420px;margin:auto;background:#141d33;border-radius:18px;padding:22px}
+h1{font-size:22px;margin:0 0 4px}h1 b{color:#2f7bff}p{color:#94a3b8;font-size:14px}
+label{display:block;margin:16px 0 6px;font-size:14px;color:#cbd5e1}
+input,select{width:100%;box-sizing:border-box;padding:13px;border-radius:12px;border:1px solid #1e2a45;background:#0a0f1e;color:#fff;font-size:16px}
+button{margin-top:22px;width:100%;padding:15px;border:0;border-radius:14px;background:#2f7bff;color:#fff;font-size:17px;font-weight:600}
+.e{background:#7f1d1d;color:#fecaca;padding:12px;border-radius:12px;margin-top:14px}
+.ok{background:#14532d;color:#bbf7d0;padding:12px;border-radius:12px}
+details{margin-top:18px;color:#94a3b8;font-size:14px}
+</style>)CSS";
+
+void paginaInicial(const String& erro = "") {
+  int n = WiFi.scanNetworks();
+  String redes;
+  for (int i = 0; i < n; i++) {
+    String s = WiFi.SSID(i);
+    if (!s.length() || redes.indexOf(">" + escapar(s) + "<") >= 0) continue;
+    redes += "<option value=\"" + escapar(s) + "\">" + escapar(s) + "</option>";
+  }
+  String h = "<!doctype html><html lang=pt-BR><head><meta charset=utf-8><title>AuggeControl</title>";
+  h += FPSTR(ESTILO);
+  h += "</head><body><div class=c><h1>Augge<b>Control</b></h1><p>Configuração do equipamento</p>";
+  if (erro.length()) h += "<div class=e>" + escapar(erro) + "</div>";
+  h += "<form method=post action=/salvar>";
+  h += "<label>Wi-Fi da casa (2,4 GHz)</label><select name=ssid>" + redes + "<option value=\"\">Outra rede (digitar)</option></select>";
+  h += "<input name=ssid2 placeholder=\"Ou digite o nome da rede\" style=margin-top:8px>";
+  h += "<label>Senha do Wi-Fi</label><input name=senha type=password autocomplete=off>";
+  h += "<label>Código de pareamento (aparece no app)</label><input name=codigo maxlength=8 required autocapitalize=characters placeholder=\"EX: K7M2Q9XA\" style=\"text-transform:uppercase;letter-spacing:4px;font-family:monospace\">";
+  h += "<details><summary>Opções do instalador</summary>";
+  h += "<label>Pinos dos relés (GPIO, separados por vírgula)</label><input name=reles value=\"26,27,25,33\">";
+  h += "<label>Pinos dos sensores de fechado (-1 = sem sensor)</label><input name=sensF value=\"-1,-1,-1,-1\">";
+  h += "<label>Relé liga com</label><select name=baixo><option value=1>Nível baixo (módulos comuns)</option><option value=0>Nível alto</option></select>";
+  h += "</details><button>Conectar</button></form></div></body></html>";
+  portal.send(200, "text/html; charset=utf-8", h);
+}
+
+void paginaResultado(bool ok, const String& texto) {
+  String h = "<!doctype html><html lang=pt-BR><head><meta charset=utf-8><title>AuggeControl</title>";
+  h += FPSTR(ESTILO);
+  h += "</head><body><div class=c><h1>Augge<b>Control</b></h1>";
+  h += ok ? "<div class=ok>" : "<div class=e>";
+  h += escapar(texto) + "</div>";
+  if (!ok) h += "<p><a href=/ style=color:#5b97ff>Tentar de novo</a></p>";
+  h += "</div></body></html>";
+  portal.send(200, "text/html; charset=utf-8", h);
+}
+
+void salvarConfiguracao() {
+  String ssid = portal.arg("ssid2").length() ? portal.arg("ssid2") : portal.arg("ssid");
+  String senha = portal.arg("senha");
+  String codigo = portal.arg("codigo");
+  codigo.trim();
+  codigo.toUpperCase();
+  if (!ssid.length()) return paginaInicial("Escolha ou digite o nome do Wi-Fi.");
+  if (codigo.length() != 8) return paginaInicial("O código de pareamento tem 8 caracteres.");
+
+  Serial.printf("Testando Wi-Fi \"%s\"", ssid.c_str());
+  if (!conectarWifi(ssid, senha, 20000)) {
+    WiFi.disconnect(false, false);
+    return paginaInicial("Não conectou nesse Wi-Fi. Confira a senha e se a rede é 2,4 GHz.");
+  }
+  sincronizarRelogio();
+
+  String resposta;
+  JsonDocument req;
+  req["code"] = codigo;
+  String corpo;
+  serializeJson(req, corpo);
+  int http = postar("pair", corpo, resposta, 15000, false);
+  JsonDocument doc;
+  if (http != 200 || deserializeJson(doc, resposta) || !doc["device_id"].is<const char*>()) {
+    String motivo = http == 400 ? "Código inválido ou expirado. Gere um novo código no app."
+                  : http == 429 ? "Muitas tentativas. Aguarde 10 minutos."
+                  : "Sem resposta da nuvem (HTTP " + String(http) + "). Confira a internet.";
+    return paginaInicial(motivo);
+  }
+
+  prefs.begin("augge", false);
+  prefs.putString("ssid", ssid);
+  prefs.putString("senha", senha);
+  prefs.putString("dev", doc["device_id"].as<const char*>());
+  prefs.putString("seg", doc["secret"].as<const char*>());
+  prefs.putString("reles", portal.arg("reles").length() ? portal.arg("reles") : "26,27,25,33");
+  prefs.putString("sensF", portal.arg("sensF").length() ? portal.arg("sensF") : "-1,-1,-1,-1");
+  prefs.putBool("baixo", portal.arg("baixo") != "0");
+  prefs.end();
+
+  paginaResultado(true, "Pronto! Equipamento conectado. Pode voltar para o app: em alguns segundos ele aparece como Online.");
+  delay(2500);
+  ESP.restart();
+}
+
+void iniciarModoConfiguracao() {
+  modoConfiguracao = true;
+  String rede = nomeRede();
+  WiFi.mode(WIFI_AP_STA);
+  WiFi.softAP(rede.c_str());
+  dns.start(53, "*", WiFi.softAPIP());
+  portal.on("/", HTTP_GET, []() { paginaInicial(); });
+  portal.on("/salvar", HTTP_POST, salvarConfiguracao);
+  // Celulares abrem a página sozinhos ao conectar na rede (portal cativo).
+  portal.onNotFound([]() {
+    portal.sendHeader("Location", "http://192.168.4.1/", true);
+    portal.send(302, "text/plain", "");
+  });
+  portal.begin();
+  Serial.printf("Modo configuração: conecte o celular na rede \"%s\"\n", rede.c_str());
+}
+
+// ------------------------------------------------------------- modo normal (nuvem)
 
 void confirmar(const char* id, bool ok, const char* erro) {
   JsonDocument doc;
@@ -125,11 +318,8 @@ void confirmar(const char* id, bool ok, const char* erro) {
   preencherEstados(doc["states"].to<JsonObject>());
   String corpo, resposta;
   serializeJson(doc, corpo);
-  // Tenta algumas vezes: a confirmação é o que aparece no app.
   for (int t = 0; t < 3; t++) {
-    int c = postar("ack", corpo, resposta, 10000);
-    if (c == 200) return;
-    Serial.printf("Falha ao confirmar comando (HTTP %d), tentando de novo\n", c);
+    if (postar("ack", corpo, resposta, 10000, true) == 200) return;
     delay(1000);
   }
 }
@@ -140,13 +330,11 @@ void executar(JsonObject cmd) {
   const char* modo = cmd["mode"] | "pulso";
   int canal = cmd["channel"] | 0;
   int ms = cmd["pulse_ms"] | 500;
-
   int alvo = canal;
   if (strcmp(modo, "abrir_fechar") == 0 && strcmp(acao, "fechar") == 0) alvo = canal + 1;
-
   Serial.printf("Comando %s: %s no canal %d (relé %d)\n", id, acao, canal, alvo);
   bool ok = pulso(alvo, ms);
-  confirmar(id, ok, ok ? nullptr : "Canal de relé não configurado no firmware");
+  confirmar(id, ok, ok ? nullptr : "Relé não configurado neste canal");
 }
 
 void ciclo() {
@@ -159,52 +347,62 @@ void ciclo() {
   String corpo, resposta;
   serializeJson(req, corpo);
 
-  // O servidor segura a conexão por até ~20 s esperando comandos.
-  int codigo = postar("poll", corpo, resposta, 30000);
-
+  int codigo = postar("poll", corpo, resposta, 30000, true);
   if (codigo == 200) {
     esperaErro = 2000;
+    falhas401 = 0;
     JsonDocument doc;
-    if (deserializeJson(doc, resposta)) {
-      Serial.println("Resposta inválida do servidor");
-      return;
-    }
-    for (JsonObject cmd : doc["commands"].as<JsonArray>()) executar(cmd);
+    if (!deserializeJson(doc, resposta))
+      for (JsonObject cmd : doc["commands"].as<JsonArray>()) executar(cmd);
     return;
   }
-
   if (codigo == 401) {
-    Serial.println("Credenciais recusadas. Confira DC_DEVICE_ID e DC_SECRET no config.h.");
-    esperaErro = 60000;
+    // Equipamento excluído ou pareado de novo em outro lugar: após 10 recusas, volta a pedir configuração.
+    Serial.println("Credenciais recusadas.");
+    if (++falhas401 >= 10) { apagarConfig(); ESP.restart(); }
+    esperaErro = 30000;
   } else {
-    Serial.printf("Erro ao falar com o servidor (HTTP %d)\n", codigo);
+    Serial.printf("Erro ao falar com a nuvem (HTTP %d)\n", codigo);
     esperaErro = min<unsigned long>(esperaErro * 2, 30000);
   }
-  delay(esperaErro);
+  unsigned long inicio = millis();
+  while (millis() - inicio < esperaErro) { verificarBotaoReset(); delay(50); }
 }
 
-// ---------------------------------------------------------------- principal
+// ------------------------------------------------------------- principal
 
 void setup() {
   Serial.begin(115200);
   delay(200);
   Serial.printf("\nAuggeControl ESP32 v%s\n", FIRMWARE_VERSAO);
-
-  for (int i = 0; i < N_RELES; i++) {
-    digitalWrite(RELES[i], NIVEL_DESLIGADO);  // nível seguro antes de virar saída
-    pinMode(RELES[i], OUTPUT);
-  }
-  for (int i = 0; i < N_SENS; i++) {
-    if (SENS_ABERTO[i] >= 0) pinMode(SENS_ABERTO[i], INPUT_PULLUP);
-    if (SENS_FECHADO[i] >= 0) pinMode(SENS_FECHADO[i], INPUT_PULLUP);
-  }
-
-  conectarWifi();
-  sincronizarRelogio();
+  carregarConfig();
+  prepararPinos();
   tls.setCACert(DC_ROOT_CA);
+
+  if (!cfg.ssid.length() || !cfg.deviceId.length() || !cfg.segredo.length()) {
+    iniciarModoConfiguracao();
+    return;
+  }
+
+  WiFi.mode(WIFI_STA);
+  WiFi.setAutoReconnect(true);
+  Serial.printf("Conectando ao Wi-Fi \"%s\"", cfg.ssid.c_str());
+  if (!conectarWifi(cfg.ssid, cfg.senha, 30000)) {
+    Serial.println("Sem Wi-Fi agora; vai tentando em segundo plano.");
+  }
+  sincronizarRelogio();
 }
 
 void loop() {
-  conectarWifi();
+  verificarBotaoReset();
+  if (modoConfiguracao) {
+    dns.processNextRequest();
+    portal.handleClient();
+    return;
+  }
+  if (WiFi.status() != WL_CONNECTED) {
+    delay(1000);
+    return;
+  }
   ciclo();
 }

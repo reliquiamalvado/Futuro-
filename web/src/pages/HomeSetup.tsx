@@ -2,9 +2,9 @@ import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { Check, Cpu, DoorOpen, Home, Plus, Trash2 } from "lucide-react";
 import { useAuth } from "../lib/auth";
-import { DEVICE_API_URL, supabase, type GateMode } from "../lib/supabase";
+import { supabase, type GateMode } from "../lib/supabase";
 import { errMsg, must } from "../lib/util";
-import { Alert, Button, Card, CopyButton, Field, Input, Select, cx } from "../components/ui";
+import { Alert, Button, Card, Field, Input, Select, cx } from "../components/ui";
 
 type Step = 1 | 2 | 3;
 interface NewGate { name: string; channel: number; mode: GateMode }
@@ -52,6 +52,7 @@ export default function HomeSetupPage() {
         p_org: home!.org_id, p_name: devName.trim(), p_driver: "dc-esp32-https",
       })) as { device_id: string; secret: string };
       setDevice(r);
+      setStep(3);
     });
   };
 
@@ -69,12 +70,8 @@ export default function HomeSetupPage() {
     must(await supabase.from("gates").insert(valid.map((g) => ({
       org_id: home!.org_id, device_id: device!.device_id, name: g.name.trim(), channel: g.channel, mode: g.mode,
     }))).select());
-    nav("/", { replace: true });
+    nav(`/instalar?dispositivo=${device!.device_id}`, { replace: true });
   });
-
-  const snippet = device
-    ? `#define DC_API_URL    "${DEVICE_API_URL}"\n#define DC_DEVICE_ID  "${device.device_id}"\n#define DC_SECRET     "${device.secret}"`
-    : "";
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -119,7 +116,7 @@ export default function HomeSetupPage() {
           {!device ? (
             <form onSubmit={createDevice} className="space-y-4">
               <p className="text-sm text-slate-600 dark:text-slate-300">
-                Cadastre o equipamento instalado no portão (ESP32 AuggeControl com relé). Ele recebe uma credencial própria.
+                Dê um nome ao equipamento (placa ESP32 AuggeControl). No final, mostramos como gravar e conectar a placa, sem programar nada.
               </p>
               <Field label="Nome do equipamento">
                 <Input required value={devName} onChange={(e) => setDevName(e.target.value)} />
@@ -129,19 +126,7 @@ export default function HomeSetupPage() {
                 <Button type="submit" className="flex-1" loading={loading}>Cadastrar equipamento</Button>
               </div>
             </form>
-          ) : (
-            <div className="space-y-4">
-              <Alert tone="amber">
-                Guarde estas credenciais agora: o segredo <b>não será exibido novamente</b>. Elas vão no arquivo
-                <code className="mx-1">config.h</code> do equipamento (o instalador faz essa parte).
-              </Alert>
-              <pre className="overflow-x-auto rounded-xl bg-ink-900 p-4 text-xs text-slate-100">{snippet}</pre>
-              <div className="flex flex-wrap gap-2">
-                <CopyButton text={snippet} label="Copiar configuração" />
-              </div>
-              <Button className="w-full" onClick={() => setStep(3)}>Já guardei, continuar</Button>
-            </div>
-          )}
+          ) : null}
         </Card>
       )}
 
@@ -177,7 +162,7 @@ export default function HomeSetupPage() {
               <Plus className="size-4" /> Outro portão
             </Button>
           )}
-          <Button className="w-full" loading={loading} onClick={createGates}>Concluir</Button>
+          <Button className="w-full" loading={loading} onClick={createGates}>Concluir e instalar o equipamento</Button>
         </Card>
       )}
     </div>

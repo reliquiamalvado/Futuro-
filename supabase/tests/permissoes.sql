@@ -363,7 +363,7 @@ select pg_temp.ok(not exists (select 1 from pg_proc p join pg_namespace n on n.o
                               where n.nspname = 'public'
                                 and p.proname in ('device_auth','device_poll','device_ack','device_set_states','device_auth_failed',
                                                   'device_ip_blocked','notify_secret_ok','enqueue_command','log_event','temp_key_check',
-                     'check_gate_pin','issue_unlock_ticket','consume_unlock_ticket','session_is_fresh','pin_is_weak')
+                     'check_gate_pin','issue_unlock_ticket','consume_unlock_ticket','session_is_fresh','pin_is_weak','pair_device')
                                 and (has_function_privilege('authenticated', p.oid, 'execute') or has_function_privilege('anon', p.oid, 'execute'))),
                   'funções internas não são chamáveis pelo app');
 create table public.tabela_esquecida (id int);
@@ -491,4 +491,31 @@ delete from devices where id = '00000000-0000-0000-0000-0000000000c1';
 select pg_temp.ok((select count(*) = 2 and bool_and(device_id is null) from gates where id in (:'gnovo', :'gc')),
                   'excluir equipamento mantém os portões (sem equipamento)');
 select pg_temp.ok((select count(*) >= 1 from commands where gate_id = :'gc'), 'excluir equipamento mantém o histórico de acionamentos');
+
+-- ---------- PAREAMENTO DO EQUIPAMENTO ----------
+set role authenticated;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000b', false);
+select (r->>'device_id') as pdev from (select create_device(:'org_c', 'ESP pareamento', 'dc-esp32-https') r) x \gset
+select (create_pairing_code(:'pdev'))->>'codigo' as pcode \gset
+select pg_temp.ok(length(:'pcode') = 8, 'admin gera código de pareamento de 8 caracteres');
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000f', false);
+select pg_temp.ok(pg_temp.erro(format($$select create_pairing_code(%L)$$, :'pdev')) is not null, 'admin de outro cliente não gera código');
+select pg_temp.ok(pg_temp.erro(format($$select pair_device(%L, '1.1.1.1')$$, :'pcode')) is not null, 'app não consegue parear direto (só a função do equipamento)');
+reset role;
+select pg_temp.ok(not exists (select 1 from device_pairings where code_hash = :'pcode'), 'código guardado só como hash');
+set role service_role;
+select pg_temp.ok((select (pair_device('ERRADO99', '7.7.7.7'))->>'ok' = 'false'), 'código errado é recusado');
+select pair_device(:'pcode', '8.8.8.8') as par \gset
+select pg_temp.ok((:'par'::jsonb)->>'device_id' = :'pdev', 'código certo entrega as credenciais do equipamento');
+select pg_temp.ok(device_auth(:'pdev', (:'par'::jsonb)->>'secret'), 'segredo recebido no pareamento autentica o equipamento');
+select pg_temp.ok((select (pair_device(:'pcode', '8.8.8.8'))->>'ok' = 'false'), 'código não pode ser usado duas vezes');
+select pair_device('CHUTE' || g, '6.6.6.6') from generate_series(1, 20) g;
+reset role;
+set role authenticated;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000b', false);
+select (create_pairing_code(:'pdev'))->>'codigo' as pcode2 \gset
+reset role;
+set role service_role;
+select pg_temp.ok((select (pair_device(:'pcode2', '6.6.6.6'))->>'erro' = 'muitas tentativas, aguarde'), 'IP com 20 códigos errados fica bloqueado');
+reset role;
 \echo TODOS_OS_TESTES_PASSARAM

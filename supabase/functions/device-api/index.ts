@@ -13,6 +13,9 @@
 //
 // POST /device-api/ack   { "command_id": "...", "success": true, "error": null, "states": {...} }
 //   -> { "ok": true }
+//
+// POST /device-api/pair  { "code": "K7M2Q9XA" }   (sem credenciais; código gerado no app)
+//   -> { "device_id": "...", "secret": "..." }
 import { createClient } from "npm:@supabase/supabase-js@2.118.0";
 
 const LONG_POLL_MS = 20_000;
@@ -125,6 +128,19 @@ Deno.serve(async (req) => {
   const route = new URL(req.url).pathname.split("/").filter(Boolean).pop();
 
   try {
+    // Pareamento: o equipamento novo troca o código de 8 caracteres (mostrado no app)
+    // pelas próprias credenciais. Não exige credencial ainda.
+    if (route === "pair") {
+      let code = "";
+      try { code = String((await req.json())?.code ?? ""); } catch { /* corpo inválido */ }
+      if (!/^[A-Za-z0-9]{8}$/.test(code)) return json(400, { error: "código inválido" });
+      const { data, error } = await db.rpc("pair_device", { p_code: code, p_ip: clientIp(req) });
+      if (error) throw error;
+      const r = data as { ok: boolean; erro?: string; device_id?: string; secret?: string };
+      if (!r.ok) return json(r.erro?.includes("muitas") ? 429 : 400, { error: r.erro });
+      return json(200, { device_id: r.device_id, secret: r.secret });
+    }
+
     // Força bruta: IP com muitas credenciais erradas fica bloqueado por 10 minutos.
     const { data: blocked } = await db.rpc("device_ip_blocked", { p_ip: clientIp(req) });
     if (blocked === true) return json(429, { error: "muitas tentativas, aguarde" });

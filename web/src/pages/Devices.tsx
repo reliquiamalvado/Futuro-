@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
-import { Activity, DoorClosed, KeyRound, Link2, Pencil, Plus, Power, RefreshCw, Trash2, Wifi, WifiOff } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Activity, DoorClosed, Usb, KeyRound, Link2, Pencil, Plus, Power, RefreshCw, Trash2, Wifi, WifiOff } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import {
   DEVICE_API_URL, isOnline, supabase, type Command, type Device, type DeviceDriver, type Gate, type GateMode,
@@ -9,6 +10,7 @@ import { Alert, Badge, Button, Card, CopyButton, Empty, Field, Input, Loading, M
 
 export default function DevicesPage() {
   const { adminOrgs } = useAuth();
+  const navigate = useNavigate();
   const [orgId, setOrgId] = useState(adminOrgs[0]?.id ?? "");
   const org = orgId || adminOrgs[0]?.id || "";
 
@@ -45,6 +47,7 @@ export default function DevicesPage() {
         title="Portões e dispositivos"
         subtitle="Equipamentos instalados, portões controlados por eles e monitoramento online/offline."
         actions={<>
+          <Link to="/instalar"><Button variant="secondary"><Usb className="size-4" /> Instalar equipamento</Button></Link>
           <Button variant="secondary" onClick={() => setGateEdit({ deviceId: null })}><DoorClosed className="size-4" /> Novo portão</Button>
           <Button onClick={() => setCreating(true)}><Plus className="size-4" /> Novo dispositivo</Button>
         </>}
@@ -114,7 +117,10 @@ export default function DevicesPage() {
                   <div className="flex flex-wrap gap-1">
                     <Button size="sm" variant="ghost" title="Diagnóstico" onClick={() => setDiag(d)}><Activity className="size-4" /></Button>
                     <Button size="sm" variant="ghost" title="Editar" onClick={() => setDevEdit(d)}><Pencil className="size-4" /></Button>
-                    <Button size="sm" variant="ghost" title="Novo segredo" onClick={() => rotate(d)}><KeyRound className="size-4" /></Button>
+                    {!online && (
+                      <Link to={`/instalar?dispositivo=${d.id}`}><Button size="sm" variant="secondary"><Wifi className="size-4" /> Conectar</Button></Link>
+                    )}
+                    <Button size="sm" variant="ghost" title="Credenciais técnicas (avançado)" onClick={() => rotate(d)}><KeyRound className="size-4" /></Button>
                   </div>
                 </div>
 
@@ -149,7 +155,7 @@ export default function DevicesPage() {
 
       {creating && (
         <NewDeviceModal orgId={org} drivers={drivers.data ?? []} onClose={() => setCreating(false)}
-          onCreated={(c) => { setCreating(false); devices.reload(true); setCredentials(c); }} />
+          onCreated={(c) => { setCreating(false); navigate(`/instalar?dispositivo=${c.device_id}`); }} />
       )}
       {credentials && <CredentialsModal c={credentials} onClose={() => setCredentials(null)} />}
       {gateEdit && (

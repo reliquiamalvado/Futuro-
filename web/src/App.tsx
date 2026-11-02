@@ -24,6 +24,8 @@ import AnnouncementsPage from "./pages/Announcements";
 import AdminsPage from "./pages/Admins";
 import HomeSetupPage from "./pages/HomeSetup";
 import OrgRequestPage from "./pages/OrgRequest";
+import { lazy, Suspense } from "react";
+const InstallDevicePage = lazy(() => import("./pages/InstallDevice"));
 import { MfaVerifyPage } from "./pages/Mfa";
 import { UnlockProvider } from "./components/UnlockProvider";
 
@@ -92,6 +94,7 @@ export default function App() {
             <Route path="residencias/:id" element={<Guard allow={(a) => a.isAdmin || a.isTitular}><ResidenceDetail /></Guard>} />
             <Route path="chaves" element={<Guard allow={(a) => a.isAdmin || a.isTitular}><TempKeysPage /></Guard>} />
             <Route path="dispositivos" element={<Guard allow={(a) => a.isAdmin}><DevicesPage /></Guard>} />
+            <Route path="instalar" element={<Guard allow={(a) => a.isAdmin}><Suspense fallback={<Loading />}><InstallDevicePage /></Suspense></Guard>} />
             <Route path="auditoria" element={<Guard allow={(a) => a.isAdmin}><AuditPage /></Guard>} />
             <Route path="organizacoes" element={<Guard allow={(a) => a.isSuper}><OrganizationsPage /></Guard>} />
           </Route>
