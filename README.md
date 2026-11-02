@@ -102,6 +102,14 @@ como linhas na tabela `device_drivers`.
 
 ## Segurança
 
+- **Verificação em duas etapas (2FA)** com aplicativo autenticador. Obrigatória para Super Admin
+  (os poderes só valem em sessão com 2FA). Para os demais, quem ativa fica protegido mesmo com a
+  senha vazada: o banco recusa sessões sem o segundo fator.
+- **Cabeçalhos de segurança** (`vercel.json`): CSP só com scripts do próprio site, bloqueio de
+  iframes (clickjacking), HSTS, `no-referrer` (links de chaves e convites não vazam para outros sites).
+- **Limites de tentativas**: convites inválidos (10/hora por pessoa), registros de falhas de
+  equipamentos e de chaves inexistentes (evita encher a auditoria).
+
 - RLS em todas as tabelas; cada cliente só vê os próprios dados.
 - Comandos só são criados por funções no servidor que verificam a permissão.
 - Segredos dos equipamentos guardados como hash, numa tabela inacessível ao app.

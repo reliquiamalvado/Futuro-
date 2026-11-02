@@ -7,6 +7,7 @@ import { ROLE_LABEL, STATUS_LABEL, errMsg } from "../lib/util";
 import { Alert, Badge, Button, Card, Field, Input, PageHeader } from "../components/ui";
 import { useTheme } from "../components/Layout";
 import { PROFILE_LABEL } from "../components/ProfileChooser";
+import { TwoFactorCard } from "./Mfa";
 
 export default function AccountPage() {
   const { profile, session, memberships, adminOrgs, roleLabel, isAdmin, isSuper, isTitular, refresh, signOut } = useAuth();
@@ -66,6 +67,8 @@ export default function AccountPage() {
           ))}
         </Card>
       )}
+
+      <TwoFactorCard />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>

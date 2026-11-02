@@ -21,3 +21,9 @@ create schema if not exists net;
 create table if not exists net.chamadas (url text, body jsonb, criado timestamptz default now());
 create or replace function net.http_post(url text, headers jsonb default '{}', body jsonb default '{}')
 returns bigint language sql as $$ insert into net.chamadas (url, body) values (url, body); select 1::bigint $$;
+
+-- 2FA (simulado): fatores e o nível da sessão (aal) vindo do JWT.
+create table if not exists auth.mfa_factors (id uuid primary key default gen_random_uuid(), user_id uuid, status text);
+create or replace function auth.jwt() returns jsonb language sql stable as
+  $$ select jsonb_build_object('aal', coalesce(nullif(current_setting('request.jwt.claim.aal', true), ''), 'aal1')) $$;
+grant execute on function auth.jwt() to anon, authenticated, service_role;

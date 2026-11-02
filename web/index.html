@@ -7,13 +7,7 @@
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <title>AuggeControl</title>
-    <script>
-      try {
-        const t = localStorage.getItem("dc.tema");
-        const dark = t ? t === "escuro" : matchMedia("(prefers-color-scheme: dark)").matches;
-        document.documentElement.classList.toggle("dark", dark);
-      } catch {}
-    </script>
+    <script src="/tema.js"></script>
   </head>
   <body>
     <div id="root"></div>

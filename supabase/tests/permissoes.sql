@@ -28,6 +28,10 @@ insert into auth.users (id, email, raw_user_meta_data) values
 
 select pg_temp.ok((select count(*) = 1 from profiles where is_super_admin), 'só o primeiro usuário é super admin');
 
+-- Super admin usa 2FA; as sessões dos testes são aal2 (exceto nos testes de 2FA no fim).
+insert into auth.mfa_factors (user_id, status) values ('00000000-0000-0000-0000-00000000000a', 'verified');
+select set_config('request.jwt.claim.aal', 'aal2', false);
+
 \set SUPER '00000000-0000-0000-0000-00000000000a'
 \set ADMIN '00000000-0000-0000-0000-00000000000b'
 \set TIT   '00000000-0000-0000-0000-00000000000c'
@@ -288,4 +292,41 @@ select pg_temp.ok((select count(*) = 1 from org_admins where org_id = :'novo_org
 select pg_temp.ok(pg_temp.erro(format($$select review_org_request(%L, false)$$, :'req1')) is not null, 'pedido não é analisado duas vezes');
 reset role;
 select pg_temp.ok((select count(*) = 1 from admin_notifications where kind = 'pedido_cliente'), 'pedido gera aviso para o dono da plataforma');
+
+-- ---------- 2FA E LIMITES ----------
+set role authenticated;
+select set_config('request.jwt.claim.aal', 'aal1', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', false);
+select pg_temp.ok(not is_super_admin(), 'super admin sem 2FA na sessão perde os poderes');
+select pg_temp.ok((select count(*) = 0 from org_requests), 'sem 2FA o super admin não vê pedidos');
+select set_config('request.jwt.claim.aal', 'aal2', false);
+select pg_temp.ok(is_super_admin(), 'super admin com 2FA tem os poderes');
+
+-- Dono de casa ativa 2FA: sessão sem 2FA não aciona nem vê portões.
+reset role;
+insert into auth.mfa_factors (user_id, status) values ('00000000-0000-0000-0000-000000000011', 'verified');
+set role authenticated;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000011', false);
+select set_config('request.jwt.claim.aal', 'aal1', false);
+select pg_temp.ok((select count(*) = 0 from my_gates()), 'quem ativou 2FA não usa o app com sessão sem 2FA');
+select pg_temp.ok((select (request_gate_command(:'hgate', 'pulso'))->>'ok' = 'false'), 'senha vazada sem 2FA não abre o portão');
+select set_config('request.jwt.claim.aal', 'aal2', false);
+select pg_temp.ok((select count(*) >= 1 from my_gates()), 'com 2FA o dono usa normalmente');
+
+-- Quem não ativou 2FA continua usando normalmente.
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000d', false);
+select set_config('request.jwt.claim.aal', 'aal1', false);
+select pg_temp.ok(is_residence_member(:'rc1'), 'usuário sem 2FA continua com acesso');
+
+-- Limite de convites inválidos.
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000e', false);
+select redeem_invite('ERRADO' || g) from generate_series(1, 10) g;
+select pg_temp.ok((select (redeem_invite('ERRADO11'))->>'erro' like 'Muitas tentativas%'), 'convites: bloqueia após 10 tentativas inválidas');
+reset role;
+
+-- Limite de registros de falha de equipamento por IP.
+set role service_role;
+select device_auth_failed('00000000-0000-0000-0000-000000000099', '1.2.3.4') from generate_series(1, 40);
+reset role;
+select pg_temp.ok((select count(*) = 20 from audit_logs where details->>'ip' = '1.2.3.4'), 'falhas de equipamento: registra no máximo 20 por IP');
 \echo TODOS_OS_TESTES_PASSARAM

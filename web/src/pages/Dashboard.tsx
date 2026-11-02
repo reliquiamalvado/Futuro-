@@ -27,7 +27,7 @@ export async function commandStatus(id: string) {
 type RecentCmd = Command & { gates: { name: string } | null; profiles: { full_name: string | null; email: string | null } | null };
 
 export default function Dashboard() {
-  const { profile, memberships, isAdmin, isTitular, adminOrgs, homeOnly } = useAuth();
+  const { profile, memberships, isAdmin, isTitular, adminOrgs, homeOnly, superNeedsMfa } = useAuth();
 
   const gates = useLoad(async () => must(await supabase.rpc("my_gates")) as MyGate[]);
   const recent = useLoad(async () =>
@@ -87,6 +87,15 @@ export default function Dashboard() {
           .map((m) => m.residence_name === m.org_name ? m.residence_name : `${m.residence_name} · ${m.org_name}`).join("  •  ") || undefined}
         actions={<Link to="/convite"><Button variant="secondary"><Ticket className="size-4" /> Usar convite</Button></Link>}
       />
+
+      {superNeedsMfa && (
+        <Link to="/conta" className="block">
+          <Alert tone="amber">
+            <b>Ative a verificação em duas etapas</b> para usar os poderes de Super Admin. Por segurança, eles ficam
+            bloqueados até a sua sessão ter o código do celular. Toque aqui para ativar em Minha conta.
+          </Alert>
+        </Link>
+      )}
 
       {pendingMine.length > 0 && (
         <Alert tone="amber">

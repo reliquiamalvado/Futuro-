@@ -22,12 +22,17 @@ import AnnouncementsPage from "./pages/Announcements";
 import AdminsPage from "./pages/Admins";
 import HomeSetupPage from "./pages/HomeSetup";
 import OrgRequestPage from "./pages/OrgRequest";
+import { MfaVerifyPage } from "./pages/Mfa";
 
 function RequireAuth({ children }: { children: ReactNode }) {
-  const { session, loading } = useAuth();
+  const { session, loading, needsMfa } = useAuth();
   const loc = useLocation();
   if (loading) return <Loading />;
   if (!session) return <Navigate to="/login" replace state={{ from: loc.pathname }} />;
+  if (needsMfa) {
+    sessionStorage.setItem("dc.voltar", loc.pathname);
+    return <Navigate to="/verificar-2fa" replace />;
+  }
   return <>{children}</>;
 }
 
@@ -44,6 +49,14 @@ function PublicOnly({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+function MfaGate() {
+  const { session, loading, needsMfa } = useAuth();
+  if (loading) return <Loading />;
+  if (!session) return <Navigate to="/login" replace />;
+  if (!needsMfa) return <Navigate to="/" replace />;
+  return <MfaVerifyPage />;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -54,6 +67,7 @@ export default function App() {
           <Route path="/recuperar-senha" element={<ForgotPasswordPage />} />
           <Route path="/redefinir-senha" element={<RequireAuth><ResetPasswordPage /></RequireAuth>} />
           <Route path="/k/:token" element={<GuestKeyPage />} />
+          <Route path="/verificar-2fa" element={<MfaGate />} />
           <Route path="/privacidade" element={<PrivacyPage />} />
           <Route path="/termos" element={<TermsPage />} />
 

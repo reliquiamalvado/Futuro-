@@ -34,6 +34,10 @@ interface AuthState {
   homeOnly: boolean;
   /** Residência principal do usuário numa casa comum. */
   homeResidenceId: string | null;
+  /** Conta com 2FA e sessão ainda sem o código: precisa verificar. */
+  needsMfa: boolean;
+  /** É super admin, mas os poderes só valem com 2FA na sessão. */
+  superNeedsMfa: boolean;
   refresh: () => Promise<void>;
   signOut: (scope?: "local" | "others" | "global") => Promise<void>;
 }
@@ -46,8 +50,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [memberships, setMemberships] = useState<Membership[]>([]);
   const [adminOrgs, setAdminOrgs] = useState<AdminOrg[]>([]);
   const [loading, setLoading] = useState(true);
+  const [aal, setAal] = useState<{ current: string | null; next: string | null }>({ current: null, next: null });
 
   const loadUserData = useCallback(async (s: Session | null) => {
+    if (s) {
+      try {
+        const { data: lvl } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+        setAal({ current: lvl?.currentLevel ?? null, next: lvl?.nextLevel ?? null });
+      } catch {
+        setAal({ current: "aal1", next: null });
+      }
+    } else {
+      setAal({ current: null, next: null });
+    }
     if (!s) {
       setProfile(null);
       setMemberships([]);
@@ -114,7 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
       setSession(s);
-      if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") {
+      if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED" || event === "MFA_CHALLENGE_VERIFIED") {
         // Evita chamar o Supabase dentro do callback (recomendação da biblioteca).
         setTimeout(() => loadUserData(s), 0);
       }
@@ -132,7 +147,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<AuthState>(() => {
-    const isSuper = !!profile?.is_super_admin;
+    const strong = aal.current === "aal2";
+    const isSuper = !!profile?.is_super_admin && strong;
+    const superNeedsMfa = !!profile?.is_super_admin && !strong;
+    const needsMfa = aal.next === "aal2" && aal.current !== "aal2";
     const isAdmin = isSuper || adminOrgs.length > 0;
     const isTitular = memberships.some((m) => m.role === "titular" && m.status === "ativo");
     const roleLabel = isSuper ? "Super Admin" : isAdmin ? "Admin" : isTitular ? "Titular"
@@ -146,9 +164,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return {
       session, profile, memberships, adminOrgs, loading,
       isSuper, isAdmin, isTitular, roleLabel: homeOnly ? (isTitular ? "Titular da casa" : roleLabel) : roleLabel,
-      homeOnly, homeResidenceId, refresh, signOut,
+      homeOnly, homeResidenceId, needsMfa, superNeedsMfa, refresh, signOut,
     };
-  }, [session, profile, memberships, adminOrgs, loading, refresh, signOut]);
+  }, [session, profile, memberships, adminOrgs, loading, aal, refresh, signOut]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
