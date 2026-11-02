@@ -48,6 +48,8 @@ a criar a rede AuggeControl-XXXX.
 
 ## 4. Ligar no portão (chame um técnico de portão)
 
+![Como fica dentro da caixinha](caixinha-montada.png)
+
 Vale para qualquer motor: de correr, pivotante, basculante ou levadiça. A placa e o relé vão numa
 caixinha plástica ao lado do motor, ligada na central com 4 fios. Mostre ao técnico:
 
