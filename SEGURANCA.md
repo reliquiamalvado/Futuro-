@@ -9,6 +9,7 @@
 | **Equipamentos** | Segredo de 192 bits por equipamento, guardado só como hash (SHA-256). HTTPS com certificado validado no ESP32. IP bloqueado por 10 min após 20 credenciais erradas. |
 | **Funções na nuvem** | `device-api`: autenticação própria + bloqueio de força bruta. `notify-admin`: só aceita chamadas do banco (segredo no Vault, nunca exposto). |
 | **Site** | CSP (só scripts do próprio site), HSTS, anti-clickjacking, `no-referrer` (links de chave/convite não vazam), redirecionamentos só para páginas internas. |
+| **Abrir portão** | Toda abertura/fechamento exige **digital, rosto (WebAuthn/passkey) ou senha de abertura**, conferida no servidor. Senha só como hash bcrypt; 5 erros bloqueiam 15 min. Criar/trocar senha ou cadastrar biometria exige login recente (≤ 10 min) ou a senha atual — celular roubado com o app aberto não abre o portão. Biometria nunca sai do aparelho; o servidor confere a assinatura e emite um tíquete de uso único (60 s). |
 | **Abuso** | Limites: 1 comando a cada 2 s por portão, 10 convites inválidos/hora, registros de falha limitados. |
 
 ## Chaves e segredos
@@ -23,13 +24,18 @@
 
 ## Testes
 
-1. **Permissões (local, 103 verificações):** `PGHOST=... PGPORT=... PGUSER=postgres supabase/tests/rodar.sh`
+1. **Permissões (local, 124 verificações):** `PGHOST=... PGPORT=... PGUSER=postgres supabase/tests/rodar.sh`
 2. **Auditoria em produção (38 verificações, não grava nada):** cole `supabase/tests/auditoria_producao.sql`
    no SQL Editor do Supabase e rode. Tudo deve sair ✅.
-3. **Dependências:** `cd web && npm audit` (deve dar 0 vulnerabilidades).
-4. **Analisador do Supabase:** Advisors → Security.
+3. **Biometria (12 verificações, autenticador virtual):** `supabase/tests/biometria/rodar.sh`
+4. **Dependências:** `cd web && npm audit` (deve dar 0 vulnerabilidades).
+5. **Analisador do Supabase:** Advisors → Security.
 
 ## Riscos aceitos (conhecidos)
+
+- **Biometria e domínio**: digitais/rostos ficam ligados ao domínio do app. Ao trocar o endereço
+  (ex.: domínio próprio), cada pessoa cadastra a biometria de novo e é preciso atualizar
+  `APP_ORIGINS` na função `unlock` (Edge Functions → Secrets). A senha de abertura continua valendo.
 
 - **pg_net**: as funções de chamada HTTP do banco são liberadas pelo próprio Supabase e não podem ser
   fechadas pelo usuário `postgres`. Não são alcançáveis pela internet porque o esquema `net` não é

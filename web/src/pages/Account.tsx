@@ -11,7 +11,7 @@ import { TwoFactorCard } from "./Mfa";
 import { UnlockSettings } from "./UnlockSettings";
 
 export default function AccountPage() {
-  const { profile, session, memberships, adminOrgs, roleLabel, isAdmin, isSuper, isTitular, refresh, signOut } = useAuth();
+  const { profile, session, memberships, adminOrgs, roleLabel, isAdmin, isSuper, isTitular, homeOnly, refresh, signOut } = useAuth();
   const { dark, toggle } = useTheme();
   const nav = useNavigate();
 
@@ -51,7 +51,7 @@ export default function AccountPage() {
     { to: "/auditoria", label: "Auditoria", icon: <ShieldCheck className="size-5" />, show: isAdmin },
     { to: "/administradores", label: "Administradores", icon: <UserCog className="size-5" />, show: isAdmin },
     { to: "/organizacoes", label: "Clientes", icon: <Building2 className="size-5" />, show: isSuper },
-  ].filter((s) => s.show);
+  ].filter((s) => s.show && (!homeOnly || ["/historico", "/chaves"].includes(s.to)));
 
   return (
     <div className="space-y-6">
@@ -103,7 +103,7 @@ export default function AccountPage() {
             ))}
             {memberships.map((m) => (
               <li key={m.id} className="flex justify-between gap-2">
-                <span>{m.residence_name} <span className="text-slate-500">· {m.org_name}</span></span>
+                <span>{m.residence_name}{m.org_name !== m.residence_name && <span className="text-slate-500"> · {m.org_name}</span>}</span>
                 <span className="flex gap-1">
                   <Badge>{ROLE_LABEL[m.role]}</Badge>
                   <Badge tone={m.status === "ativo" ? "green" : m.status === "pendente" ? "amber" : "red"}>{STATUS_LABEL[m.status]}</Badge>
