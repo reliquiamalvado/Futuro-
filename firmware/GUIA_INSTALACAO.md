@@ -11,7 +11,8 @@ Não precisa programar nem instalar nada no computador. Todo o processo é guiad
 | **Módulo relé 5 V, 1 canal** | 2 canais se forem 2 portões ou abrir/fechar separados | R$ 10–20 |
 | **3 jumpers fêmea-fêmea** | Só encaixam, sem solda: VIN→VCC, GND→GND, D26→IN | R$ 5 |
 | **Cabo USB de dados** + carregador de celular | Alguns cabos só carregam — se a placa não aparecer, troque o cabo | — |
-| **Caixinha plástica** | Para proteger da chuva | R$ 10–20 |
+| **Caixinha plástica** | Para proteger da chuva (só na instalação final) | R$ 10–20 |
+| **Conversor 12/24 V → 5 V USB** (“buck 12v 24v 5v usb”) | Só na instalação final, para tirar energia da central do motor | R$ 15–30 |
 | *Opcional:* sensor magnético (reed switch) | Mostra no app se o portão está aberto/fechado | R$ 10–15 |
 
 > O Wi-Fi do ESP32 é **2,4 GHz**. Redes só 5 GHz não funcionam.
@@ -47,13 +48,19 @@ a criar a rede AuggeControl-XXXX.
 
 ## 4. Ligar no portão (chame um técnico de portão)
 
-Mostre ao técnico:
+Vale para qualquer motor: de correr, pivotante, basculante ou levadiça. A placa e o relé vão numa
+caixinha plástica ao lado do motor, ligada na central com 4 fios. Mostre ao técnico:
 
 ```
-Ligar os contatos COM e NA do relé nos bornes de BOTOEIRA da central (BOT / PUL / START),
-em paralelo com o botão/receptor. Contato seco, sem tensão. Não ligar na rede 127/220 V do motor.
+Botão: ligar COM e NA do relé nos bornes de BOTOEIRA da central (BOT / PUL / START),
+em paralelo com o botão/receptor. Contato seco, sem tensão.
+Energia: saída auxiliar +12/24 V e GND da central (a mesma da fotocélula) → conversor DC-DC
+12/24 V para 5 V USB (mín. 1 A), dentro da caixa; cabo USB na placa.
+Não ligar 12/24 V direto no VIN. Não ligar na rede 127/220 V do motor.
 Sensor opcional: um fio no GPIO 32, outro no GND.
 ```
+
+Sem saída auxiliar na central? Use um carregador de celular numa tomada perto do motor.
 
 Depois, cadastre o portão em **Portões e dispositivos** (Relé 1, tipo Pulso) e teste pelo app.
 Em condomínio, use **Residências → Vincular portões** (em casa comum é automático).

@@ -188,8 +188,10 @@ export default function InstallDevicePage() {
         <p><b>Recomendação:</b> chame um <b>técnico de portão eletrônico</b> — é um serviço rápido. Mostre esta mensagem a ele:</p>
         <div className="rounded-xl bg-slate-50 p-4 font-mono text-xs leading-relaxed dark:bg-ink-850">
           Ligar os contatos COM e NA do relé nos bornes de BOTOEIRA da central (BOT / PUL / START),
-          em paralelo com o botão/receptor. Contato seco, sem tensão. Alimentar a placa com 5 V
-          (ou 12/24 V se a placa aceitar). Não ligar na rede 127/220 V do motor.
+          em paralelo com o botão/receptor. Contato seco, sem tensão. Alimentação: saída auxiliar
+          +12/24 V e GND da central (a mesma da fotocélula) → conversor DC-DC 12/24 V para 5 V USB
+          (mín. 1 A), dentro da caixa; cabo USB na placa. Não ligar 12/24 V direto no VIN.
+          Não ligar na rede 127/220 V do motor.
         </div>
         <p>Depois, cadastre o portão em <Link to="/dispositivos" className="text-brand-500 underline">Portões e dispositivos</Link> e
           teste pelo app.</p>
