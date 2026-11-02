@@ -1,102 +1,114 @@
-# Portão Wi-Fi
+# DigitalControl
 
-App para abrir e fechar o portão pelo celular.
-
-Um **ESP32** com **módulo relé** é ligado à entrada de botoeira da central do
-portão. O ESP32 se conecta ao Wi-Fi da casa e entrega o próprio app. Basta abrir
-`http://portao.local` no celular e escolher **"Adicionar à tela inicial"** para
-ele virar um ícone igual a um app comum.
+Plataforma de controle de acesso inteligente e automação de portões para
+residências, condomínios e empresas.
 
 ```
-Celular (app)  ──Wi-Fi──▶  ESP32  ──▶  Relé  ──▶  Central do portão (botoeira)
+ App (React)  ──HTTPS──▶  Supabase (Auth + Postgres/RLS)  ◀──HTTPS──  Equipamento (ESP32)
+                               │                                   long-polling, sem abrir portas
+                               └── Edge Function device-api ───────┘
 ```
 
-## Materiais
+## O que já funciona (etapa 1: núcleo)
 
-| Item | Observação |
+| Área | Recursos |
 |---|---|
-| ESP32 DevKit | qualquer modelo com Wi-Fi |
-| Módulo relé 1 canal 5 V | 2 canais se a central tiver entradas separadas para abrir e fechar |
-| Fonte 5 V | muitas centrais já têm saída 12 V/24 V; nesse caso use um conversor step-down |
-| Reed switch / fim de curso (opcional) | para o app mostrar se o portão está aberto ou fechado |
+| Autenticação | E-mail e senha, Google, cadastro, recuperação e troca de senha, encerrar sessões em outros aparelhos |
+| Níveis de acesso | Super Admin, Admin (por organização), Titular e Morador, garantidos por RLS no banco |
+| Clientes | Cadastro de empresas, condomínios e residenciais, administradores, suspensão de cliente |
+| Residências | Cadastro, moradores, aprovação, bloqueio, permissões por portão, convites por código e QR Code |
+| Portões e dispositivos | Cadastro com credencial própria, vários portões por equipamento (relés), pulso ou abrir/fechar, online/offline, diagnóstico |
+| Acionamento | Comando real enviado ao equipamento, confirmação de execução, estado do portão (com sensor), limite de repetição |
+| Chaves temporárias | Validade, horários, dias da semana, limite de usos, revogação, link/QR para visitante sem conta, registro de uso |
+| Auditoria | Histórico de todas as alterações, falhas, tentativas negadas e credenciais inválidas; exportação CSV de acionamentos |
+| Visual | Tema claro/escuro, responsivo (celular, tablet, computador), instalável na tela inicial |
 
-## Ligação
-
-```
-ESP32 GPIO26 ──▶ IN  do relé
-ESP32 5V/VIN ──▶ VCC do relé
-ESP32 GND    ──▶ GND do relé
-
-Relé COM ──┐
-           ├──▶ bornes "BOTOEIRA" (ou "BOT"/"PUL") da central do portão
-Relé NA  ──┘    (os mesmos onde ficaria um botão de interfone)
-
-Sensor (opcional): GPIO32 ── reed switch ── GND
-```
-
-> ⚠️ Nunca ligue o relé na alimentação de 127/220 V do motor. Os contatos do
-> relé só substituem o **botão** da central, que é um sinal de baixa tensão.
-> Se tiver dúvida, peça a um eletricista ou técnico de portões.
-
-## Instalação do firmware
-
-1. Instale o [Arduino IDE](https://www.arduino.cc/en/software) e adicione o
-   suporte ao ESP32 (Gerenciador de Placas → "esp32" da Espressif).
-2. Copie `firmware/portao/config.exemplo.h` para `firmware/portao/config.h` e
-   preencha:
-   - `WIFI_SSID` e `WIFI_SENHA`: sua rede Wi-Fi
-   - `TOKEN_ACESSO`: a senha que o app vai pedir (use uma senha forte)
-   - `ABRIR_FECHAR_SEPARADOS`: `1` só se sua central tiver entradas separadas
-   - `SENSOR_*_PINO`: o pino do sensor, se você instalou um
-3. Abra `firmware/portao/portao.ino`, selecione a placa "ESP32 Dev Module" e
-   clique em **Carregar**.
-4. No Monitor Serial (115200) aparece o IP. No celular, conectado ao mesmo
-   Wi-Fi, abra `http://portao.local` (ou o IP), digite a senha e pronto.
-
-## Usando o app
-
-- **Acionar portão**: envia um pulso na botoeira (abre, para ou fecha, como o
-  controle remoto).
-- **Abrir / Fechar**: aparecem no lugar de "Acionar" quando a central tem
-  entradas separadas.
-- **Estado**: mostra Aberto / Fechado / Em movimento se houver sensores.
-- ⚙️: muda a senha ou o endereço do dispositivo.
-
-## Testar sem hardware
-
-```bash
-python3 tools/simulador.py
-```
-
-Abra http://localhost:8080 e use a senha `teste`. O simulador imita o portão
-abrindo e fechando.
-
-## Alterando o app
-
-O app fica em `app/`. Depois de editar, gere de novo o arquivo que vai dentro
-do firmware:
-
-```bash
-python3 tools/gerar_header.py
-```
-
-## Segurança
-
-- Todo comando exige a senha (`X-Token`). Sem ela o ESP32 responde 401.
-- Há um intervalo mínimo entre comandos para evitar acionamentos repetidos.
-- O acesso é só pela rede local. **Não** abra a porta do ESP32 no roteador:
-  a conexão é HTTP sem criptografia. Para acesso fora de casa, use uma VPN
-  (por exemplo Tailscale ou WireGuard no roteador).
+**Próximas etapas:** comunicados e notificações, relatórios por período,
+planos/contratos, drivers MQTT e de outros fabricantes.
 
 ## Estrutura
 
 ```
-app/                     app (página web instalável)
-firmware/portao/         código do ESP32 (Arduino)
-  portao.ino
-  config.exemplo.h       modelo de configuração
-  pagina.h               app embutido (gerado)
-tools/
-  gerar_header.py        gera pagina.h a partir de app/
-  simulador.py           simula o ESP32 no computador
+web/                         App React + TypeScript + Tailwind
+supabase/migrations/         Banco: tabelas, RLS, funções (já aplicado no projeto)
+supabase/functions/device-api/  API dos equipamentos (já publicada)
+supabase/tests/              Testes de permissão (rodam num Postgres local)
+firmware/digitalcontrol-esp32/  Firmware do ESP32
+tools/simulador-dispositivo.mjs Simula um equipamento real para testes
+```
+
+## Colocando no ar
+
+### 1. Primeiro acesso (Super Admin)
+O **primeiro usuário cadastrado** vira Super Admin automaticamente. Crie a sua
+conta antes de divulgar o app.
+
+### 2. Configurações do Supabase (painel)
+Em **Authentication → URL Configuration**:
+- **Site URL**: o endereço onde o app ficará (ex.: `https://app.digitalcontrol.com.br`).
+- **Redirect URLs**: adicione `https://SEU-DOMINIO/**` e `http://localhost:5173/**`.
+
+Para **Login com Google**: em **Authentication → Providers → Google**, ative e
+cole o *Client ID* e *Client Secret* criados no Google Cloud Console
+(OAuth, tipo "Aplicativo da Web", com a URL de callback que o Supabase mostra).
+
+Recomendado para produção: configurar um SMTP próprio em
+**Authentication → Emails** (o envio padrão do Supabase tem limite baixo).
+
+### 3. Publicar o app
+```bash
+cd web
+npm install
+npm run build        # gera web/dist
+```
+Funciona em Vercel, Netlify ou qualquer hospedagem estática (já inclui
+`vercel.json` e `_redirects`). Configure as variáveis do arquivo `web/.env`.
+
+Para desenvolver localmente: `npm run dev` e abra http://localhost:5173.
+
+### 4. Fluxo de uso
+1. **Super Admin** → Clientes → cria o cliente e adiciona o administrador (pelo e-mail).
+2. **Admin** → Portões e dispositivos → cadastra o equipamento (recebe as credenciais) e os portões.
+3. **Admin** → Residências → cria a residência, vincula os portões e gera um convite de **Titular**.
+4. **Titular** → entra com o convite, convida **Moradores**, aprova e define permissões.
+5. Titular cria **chaves temporárias** para visitantes.
+
+## Equipamento (ESP32)
+
+Ligação: cada relé do módulo vai nos bornes de **botoeira** da central do
+portão (contato seco, baixa tensão). Nunca ligue o relé na rede de 127/220 V.
+
+1. Arduino IDE com a placa **esp32 (Espressif)** e a biblioteca **ArduinoJson 7**.
+2. Copie `firmware/digitalcontrol-esp32/config.exemplo.h` para `config.h`,
+   preencha o Wi-Fi e cole as 3 linhas de credenciais mostradas no painel.
+3. Carregue `digitalcontrol-esp32.ino`. No Monitor Serial (115200) aparecem
+   as conexões e os comandos recebidos.
+
+Pinos padrão dos relés: 26, 27, 25, 33 (canais 1 a 4). Sensores de
+aberto/fechado são opcionais.
+
+### Testar sem hardware
+Cadastre um dispositivo no painel e rode, com as credenciais exibidas:
+```bash
+DC_API_URL=... DC_DEVICE_ID=... DC_SECRET=... node tools/simulador-dispositivo.mjs
+```
+O simulador se conecta à API real, recebe os comandos e confirma a execução.
+
+### Protocolo (para novos fabricantes)
+`POST {DC_API_URL}/poll` e `POST {DC_API_URL}/ack` com os cabeçalhos
+`X-Device-Id` e `Authorization: Device <segredo>`. Detalhes em
+`supabase/functions/device-api/index.ts`. Novos tipos de equipamento entram
+como linhas na tabela `device_drivers`.
+
+## Segurança
+
+- RLS em todas as tabelas; cada cliente só vê os próprios dados.
+- Comandos só são criados por funções no servidor que verificam a permissão.
+- Segredos dos equipamentos guardados como hash, numa tabela inacessível ao app.
+- HTTPS com validação de certificado no firmware.
+- Auditoria automática de alterações e de atividades suspeitas.
+
+Testes de permissão (46 verificações), num Postgres local:
+```bash
+PGHOST=... PGPORT=... PGUSER=postgres supabase/tests/rodar.sh
 ```
