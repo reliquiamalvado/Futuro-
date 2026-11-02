@@ -68,7 +68,7 @@ Para desenvolver localmente: `npm run dev` e abra http://localhost:5173.
 
 ### 4. Fluxo de uso
 1. **Super Admin** → Clientes → cria o cliente e adiciona o administrador (pelo e-mail).
-2. **Admin** → Portões e dispositivos → cadastra o equipamento (recebe as credenciais) e os portões.
+2. **Admin** → Portões e dispositivos → **Instalar equipamento** (grava e pareia a placa) e cadastra os portões.
 3. **Admin** → Residências → cria a residência, vincula os portões e gera um convite de **Titular**.
 4. **Titular** → entra com o convite, convida **Moradores**, aprova e define permissões.
 5. Titular cria **chaves temporárias** para visitantes.
@@ -78,17 +78,16 @@ Para desenvolver localmente: `npm run dev` e abra http://localhost:5173.
 Ligação: cada relé do módulo vai nos bornes de **botoeira** da central do
 portão (contato seco, baixa tensão). Nunca ligue o relé na rede de 127/220 V.
 
-1. Arduino IDE com a placa **esp32 (Espressif)** e a biblioteca **ArduinoJson 7**.
-2. Copie `firmware/auggecontrol-esp32/config.exemplo.h` para `config.h`,
-   preencha o Wi-Fi e cole as 3 linhas de credenciais mostradas no painel.
-3. Carregue `auggecontrol-esp32.ino`. No Monitor Serial (115200) aparecem
-   as conexões e os comandos recebidos.
+Sem programar: no app, **Instalar equipamento** grava o firmware pelo navegador
+(Chrome/Edge + USB), e a placa é configurada pelo celular (rede `AuggeControl-XXXX`,
+Wi-Fi da casa + código de pareamento). Segurar BOOT 5 s reconfigura.
+Passo a passo completo: [firmware/GUIA_INSTALACAO.md](firmware/GUIA_INSTALACAO.md).
 
 Pinos padrão dos relés: 26, 27, 25, 33 (canais 1 a 4). Sensores de
 aberto/fechado são opcionais.
 
 ### Testar sem hardware
-Cadastre um dispositivo no painel e rode, com as credenciais exibidas:
+Em Portões e dispositivos, use "Gerar novo segredo" e rode, com as credenciais exibidas:
 ```bash
 DC_API_URL=... DC_DEVICE_ID=... DC_SECRET=... node tools/simulador-dispositivo.mjs
 ```

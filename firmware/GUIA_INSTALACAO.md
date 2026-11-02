@@ -1,87 +1,69 @@
-# Guia de montagem e instalação — ESP32 AuggeControl
+# Guia de instalação — ESP32 AuggeControl
 
-## 1. Lista de compras
+Não precisa programar nem instalar nada no computador. Todo o processo é guiado pelo app em
+**Portões e dispositivos → Instalar equipamento** (`/instalar`).
 
-| Item | Quantidade | Observação | Preço aprox. |
-|---|---|---|---|
-| **ESP32 DevKit V1 (30 ou 38 pinos)** | 1 | Placa com Wi-Fi. Evite "ESP32-CAM" e "ESP8266". | R$ 35–50 |
-| **Módulo relé 5 V com optoacoplador** | 1 (1 canal) ou 2 canais | 2 canais se a central tiver abrir/fechar separados, ou para 2 portões | R$ 10–20 |
-| **Fonte 5 V 2 A** (USB ou de parafuso) | 1 | Ou um **conversor step-down** (LM2596 / Mini-360) se for usar os 12/24 V da central | R$ 15–30 |
-| **Cabo USB de dados** | 1 | Para gravar o firmware (alguns cabos só carregam!) | — |
-| **Jumpers fêmea-fêmea** | 6 | Para ligar ESP32 ↔ relé | R$ 5 |
-| **Caixa plástica (patola / passagem)** | 1 | Para proteger da chuva | R$ 10–20 |
-| *Opcional:* **sensor magnético com fio** (reed switch de alarme) | 1 por portão | Mostra no app se o portão está aberto/fechado | R$ 10–15 |
+## 1. O que comprar
 
-Total: **cerca de R$ 80–130** por portão.
+| Item | Observação | Preço aprox. |
+|---|---|---|
+| **Placa ESP32 com relé integrado** (“módulo relé ESP32 1 canal com fonte”) | 2 canais se forem 2 portões ou abrir/fechar separados. Mais simples: tudo numa peça só | R$ 40–80 |
+| **Cabo USB de dados** | Alguns cabos só carregam — se a placa não aparecer, troque o cabo | — |
+| **Fonte** | Conforme a placa: 5 V USB, ou os 12/24 V da própria central se a placa aceitar | R$ 0–30 |
+| **Caixinha plástica** | Para proteger da chuva | R$ 10–20 |
+| *Opcional:* sensor magnético (reed switch) | Mostra no app se o portão está aberto/fechado | R$ 10–15 |
 
 > O Wi-Fi do ESP32 é **2,4 GHz**. Redes só 5 GHz não funcionam.
 
-## 2. Ligação
+Alternativa para técnicos: ESP32 DevKit V1 + módulo relé 5 V separado (VIN→VCC, GND→GND,
+GPIO 26→IN1, GPIO 27→IN2).
+
+## 2. Gravar o AuggeControl na placa (2 minutos)
+
+1. Num **computador** com **Chrome ou Edge**, abra o app → **Instalar equipamento**.
+2. Ligue a placa no USB e clique em **Instalar AuggeControl na placa**.
+3. Escolha a porta (“USB Serial”, “CP210x” ou “CH340”) e aguarde chegar a 100%.
+
+Se a placa não aparecer: troque o cabo ou instale o driver CP210x / CH340.
+Se ficar parado em “Connecting…”, segure o botão **BOOT** da placa até começar.
+
+## 3. Conectar à sua conta (pelo celular)
+
+1. No app, gere o **código de pareamento** (8 letras/números, vale 30 minutos, uma vez só).
+2. Ligue a placa na energia. Ela cria uma rede Wi-Fi chamada **AuggeControl-XXXX**.
+3. No celular, conecte nessa rede. Abre uma página (se não abrir, acesse **192.168.4.1**).
+4. Escolha o Wi-Fi da casa, digite a senha e o código. Toque em **Conectar**.
+5. Em segundos o app mostra o equipamento **online**.
+
+Para refazer (trocar de Wi-Fi, por exemplo): **segure o botão BOOT por 5 segundos**; a placa volta
+a criar a rede AuggeControl-XXXX.
+
+## 4. Ligar no portão (chame um técnico de portão)
+
+Mostre ao técnico:
 
 ```
-ESP32                 Módulo relé
-VIN (5 V) ──────────▶ VCC
-GND       ──────────▶ GND
-GPIO 26   ──────────▶ IN1   (portão no "Relé 1")
-GPIO 27   ──────────▶ IN2   (opcional: "Relé 2")
-
-Módulo relé (saída)        Central do portão
-COM ─────────────────────▶ borne BOTOEIRA / BOT / PUL
-NA (NO) ─────────────────▶ borne COMUM / GND da botoeira
-
-Sensor (opcional): um fio no GPIO 32, outro no GND do ESP32
+Ligar os contatos COM e NA do relé nos bornes de BOTOEIRA da central (BOT / PUL / START),
+em paralelo com o botão/receptor. Contato seco, sem tensão. Não ligar na rede 127/220 V do motor.
+Sensor opcional: um fio no GPIO 32, outro no GND.
 ```
 
-- Use os bornes **COM** e **NA** (normalmente aberto) do relé — nunca o NF.
-- Os bornes de botoeira são os mesmos onde ficaria um botão de interfone ou o receptor externo.
-  No manual da central eles aparecem como **BOT, BOTOEIRA, PUL, PB, START** ou **AUX**.
-- ⚠️ **Nunca** ligue o relé na rede 127/220 V do motor. Os contatos do relé só substituem o **botão**
-  (sinal de baixa tensão). Na dúvida, chame um técnico de portões.
+Depois, cadastre o portão em **Portões e dispositivos** (Relé 1, tipo Pulso) e teste pelo app.
+Em condomínio, use **Residências → Vincular portões** (em casa comum é automático).
 
-## 3. Cadastro no app
-
-1. **Portões e dispositivos → Novo dispositivo**: dê um nome (ex.: "ESP32 garagem").
-2. Aparecem **3 linhas de credenciais** — **copie e guarde** (o segredo não aparece de novo).
-3. **Novo portão** (ou "+ Portão" dentro do dispositivo): escolha o equipamento, **Relé 1**, tipo **Pulso**.
-4. Em condomínio: em **Residências**, use **Vincular portões** para liberar o portão às unidades
-   (em casa comum isso é automático).
-
-## 4. Gravar o firmware
-
-1. Instale o **Arduino IDE 2** (arduino.cc/en/software).
-2. **Arquivo → Preferências → URLs adicionais de gerenciadores de placas**, cole:
-   `https://espressif.github.io/arduino-esp32/package_esp32_index.json`
-3. **Ferramentas → Placa → Gerenciador de placas**: instale **"esp32" da Espressif**.
-4. **Ferramentas → Gerenciar bibliotecas**: instale **"ArduinoJson" de Benoit Blanchon (versão 7)**.
-5. Na pasta `firmware/auggecontrol-esp32/`, copie `config.exemplo.h` para **`config.h`** e preencha:
-   - `WIFI_SSID` e `WIFI_SENHA` (rede 2,4 GHz)
-   - as **3 linhas** copiadas no passo 3.2 (`DC_API_URL`, `DC_DEVICE_ID`, `DC_SECRET`)
-   - se usar sensor: `SENSOR_FECHADO_PINOS { 32, -1, -1, -1 }`
-6. Abra `auggecontrol-esp32.ino`, escolha **Ferramentas → Placa → ESP32 Dev Module** e a **Porta** (COM / ttyUSB).
-7. Clique em **Carregar (→)**. Se ficar em "Connecting....", **segure o botão BOOT** da placa até começar.
-
-## 5. Primeiro teste (na bancada, antes de ligar no portão)
-
-1. Abra **Ferramentas → Monitor Serial** em **115200**. O esperado:
-   ```
-   AuggeControl ESP32 v1.0.0
-   Conectando ao Wi-Fi "SuaRede"....
-   Wi-Fi conectado. IP 192.168.0.42, sinal -55 dBm
-   Sincronizando relógio... ok
-   ```
-2. Em até 30 s o dispositivo fica **Online** no app.
-3. No app, toque em **Acionar** (com a senha de abertura ou digital). O relé deve dar **um clique**
-   e o Monitor Serial mostra `Comando ...: pulso no canal 1`. No app aparece **"Comando executado"**.
-4. Só depois disso ligue o relé na central e teste com o portão.
-
-## 6. Problemas comuns
+## 5. Problemas comuns
 
 | Sintoma | Causa provável |
 |---|---|
-| Não conecta no Wi-Fi | Rede 5 GHz, senha errada ou sinal fraco (aproxime o roteador / use repetidor) |
-| "Credenciais recusadas" | `DC_DEVICE_ID` / `DC_SECRET` errados — gere um novo segredo no app e grave de novo |
-| "HTTP -1" repetido | Relógio não sincronizou ou rede bloqueia HTTPS; confira a internet |
-| Relé não clica | Fio no pino errado; teste `RELE_ATIVO_EM_BAIXO` como `0` |
+| Página “código inválido” | Código expirou ou já foi usado — gere outro no app |
+| Não conecta no Wi-Fi | Rede 5 GHz, senha errada ou sinal fraco |
+| Rede AuggeControl-XXXX não aparece | Placa já configurada — segure BOOT 5 s |
 | Relé clica mas portão não mexe | Fios na botoeira errada ou usando NF em vez de NA |
-| Portão abre e fecha sozinho / repete | Pulso longo demais: diminua a duração no cadastro do portão |
-| Dispositivo fica offline às vezes | Sinal Wi-Fi fraco (veja "Sinal" no diagnóstico do app; abaixo de −80 dBm é ruim) |
+| Portão repete o movimento | Pulso longo demais: diminua a duração no cadastro do portão |
+| Fica offline às vezes | Sinal fraco (abaixo de −80 dBm no diagnóstico é ruim) |
+
+## Para desenvolvedores
+
+O GitHub Actions (`.github/workflows/firmware.yml`) compila `auggecontrol-esp32.ino` a cada
+mudança e publica `web/public/firmware/`. Para apontar para outra API, crie `config.h` a partir de
+`config.exemplo.h`. Monitor Serial em 115200 mostra conexões e comandos.
