@@ -1,0 +1,8 @@
+{
+  "name": "AuggeControl ESP32",
+  "version": "2.0.0",
+  "new_install_prompt_erase": true,
+  "builds": [
+    { "chipFamily": "ESP32", "parts": [{ "path": "auggecontrol-esp32.bin", "offset": 0 }] }
+  ]
+}
