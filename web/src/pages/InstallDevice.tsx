@@ -98,6 +98,10 @@ export default function InstallDevicePage() {
           <li><b>Cabo USB de dados</b> (alguns cabos só carregam) e um <b>carregador de celular</b> comum.</li>
           <li><b>Caixinha plástica</b> para proteger da chuva.</li>
         </ul>
+        <video src="/videos/montagem-auggecontrol.mp4" controls playsInline preload="metadata"
+          className="w-full rounded-xl ring-1 ring-slate-200 dark:ring-ink-800" />
+        <a href="/videos/montagem-auggecontrol.mp4" download="montagem-auggecontrol.mp4"
+          className="inline-block text-brand-500 underline">Baixar o vídeo da montagem (1,5 MB)</a>
         <p className="text-xs text-slate-500">Placas “ESP32 com relé integrado” também funcionam, mas muitas não têm USB e usam outros pinos — só para técnicos.</p>
       </Step>
 
