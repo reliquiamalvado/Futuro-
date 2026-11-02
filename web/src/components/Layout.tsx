@@ -1,9 +1,12 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
-  Building2, Cpu, History, Home, KeyRound, LogOut, Moon, ShieldCheck, Sun, UserCircle2, Users,
+  BarChart3, Building2, Cpu, History, Home, KeyRound, LayoutDashboard, LogOut, Megaphone, Moon, ShieldCheck,
+  Sun, UserCheck, UserCircle2, UserCog, Users,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
+import { supabase } from "../lib/supabase";
+import { unreadAnnouncements } from "../pages/Announcements";
 import { cx } from "./ui";
 
 export function useTheme() {
@@ -26,24 +29,58 @@ export function Logo({ className }: { className?: string }) {
   );
 }
 
-interface Item { to: string; label: string; icon: ReactNode; show: boolean; mobile?: string }
+interface Item { to: string; label: string; icon: ReactNode; show: boolean; mobile?: string; section: string; badge?: number }
+
+/** Contadores do menu: aprovações pendentes e comunicados não lidos. */
+export function useMenuBadges() {
+  const { profile, isAdmin, isTitular } = useAuth();
+  const loc = useLocation();
+  const [pending, setPending] = useState(0);
+  const [unread, setUnread] = useState(0);
+  useEffect(() => {
+    if (!profile) return;
+    const load = async () => {
+      if (isAdmin || isTitular) {
+        const { count } = await supabase.from("residence_members").select("id", { count: "exact", head: true })
+          .eq("status", "pendente").neq("user_id", profile.id);
+        setPending(count ?? 0);
+      }
+      setUnread(await unreadAnnouncements(profile.id));
+    };
+    load();
+    const h = () => load();
+    window.addEventListener("dc:comunicados", h);
+    const t = setInterval(() => !document.hidden && load(), 60_000);
+    return () => { window.removeEventListener("dc:comunicados", h); clearInterval(t); };
+  }, [profile, isAdmin, isTitular, loc.pathname]);
+  return { pending, unread };
+}
 
 export default function Layout() {
   const { profile, isSuper, isAdmin, isTitular, roleLabel, signOut } = useAuth();
   const { dark, toggle } = useTheme();
   const nav = useNavigate();
 
+  const { pending, unread } = useMenuBadges();
+  const manager = isAdmin || isTitular;
+
   const items: Item[] = [
-    { to: "/", label: "Início", icon: <Home className="size-5" />, show: true, mobile: "Início" },
-    { to: "/historico", label: "Histórico", icon: <History className="size-5" />, show: true, mobile: "Histórico" },
-    { to: "/residencias", label: "Residências", icon: <Users className="size-5" />, show: isAdmin || isTitular, mobile: "Residências" },
-    { to: "/chaves", label: "Chaves temporárias", icon: <KeyRound className="size-5" />, show: isAdmin || isTitular },
-    { to: "/dispositivos", label: "Portões e dispositivos", icon: <Cpu className="size-5" />, show: isAdmin, mobile: "Portões" },
-    { to: "/organizacoes", label: "Clientes", icon: <Building2 className="size-5" />, show: isSuper },
-    { to: "/auditoria", label: "Auditoria e segurança", icon: <ShieldCheck className="size-5" />, show: isAdmin },
-    { to: "/conta", label: "Minha conta", icon: <UserCircle2 className="size-5" />, show: true, mobile: "Conta" },
+    { section: "Geral", to: "/", label: isAdmin ? "Dashboard" : "Início", icon: isAdmin ? <LayoutDashboard className="size-5" /> : <Home className="size-5" />, show: true, mobile: "Início" },
+    { section: "Geral", to: "/comunicados", label: "Comunicados", icon: <Megaphone className="size-5" />, show: true, mobile: "Avisos", badge: unread },
+    { section: "Geral", to: "/historico", label: "Acionamentos", icon: <History className="size-5" />, show: true, mobile: manager ? undefined : "Acionamentos" },
+    { section: "Gestão", to: "/aprovacoes", label: "Aprovações", icon: <UserCheck className="size-5" />, show: manager, mobile: "Aprovações", badge: pending },
+    { section: "Gestão", to: "/moradores", label: "Moradores", icon: <Users className="size-5" />, show: manager },
+    { section: "Gestão", to: "/residencias", label: "Residências", icon: <Home className="size-5" />, show: manager, mobile: manager && !isAdmin ? "Residências" : undefined },
+    { section: "Gestão", to: "/chaves", label: "Chaves temporárias", icon: <KeyRound className="size-5" />, show: manager },
+    { section: "Gestão", to: "/dispositivos", label: "Portões e dispositivos", icon: <Cpu className="size-5" />, show: isAdmin, mobile: "Portões" },
+    { section: "Administração", to: "/relatorios", label: "Relatórios", icon: <BarChart3 className="size-5" />, show: isAdmin },
+    { section: "Administração", to: "/auditoria", label: "Auditoria", icon: <ShieldCheck className="size-5" />, show: isAdmin },
+    { section: "Administração", to: "/administradores", label: "Administradores", icon: <UserCog className="size-5" />, show: isAdmin },
+    { section: "Administração", to: "/organizacoes", label: "Clientes", icon: <Building2 className="size-5" />, show: isSuper },
+    { section: "Conta", to: "/conta", label: "Minha conta", icon: <UserCircle2 className="size-5" />, show: true, mobile: "Conta" },
   ];
   const visible = items.filter((i) => i.show);
+  const sections = [...new Set(visible.map((i) => i.section))];
 
   const linkCls = ({ isActive }: { isActive: boolean }) =>
     cx(
@@ -58,12 +95,22 @@ export default function Layout() {
       {/* Menu lateral (computador/tablet) */}
       <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-slate-200 bg-white px-4 py-5 lg:flex dark:border-ink-800 dark:bg-ink-900">
         <Logo className="mb-8 px-2" />
-        <nav className="flex flex-1 flex-col gap-1">
-          {visible.map((i) => (
-            <NavLink key={i.to} to={i.to} end={i.to === "/"} className={linkCls}>
-              {i.icon}
-              {i.label}
-            </NavLink>
+        <nav className="-mx-1 flex flex-1 flex-col gap-1 overflow-y-auto px-1">
+          {sections.map((sec) => (
+            <div key={sec} className="mb-2">
+              {sections.length > 2 && sec !== "Conta" && (
+                <div className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">{sec}</div>
+              )}
+              {visible.filter((i) => i.section === sec).map((i) => (
+                <NavLink key={i.to} to={i.to} end={i.to === "/"} className={linkCls}>
+                  {i.icon}
+                  <span className="flex-1">{i.label}</span>
+                  {!!i.badge && (
+                    <span className="min-w-5 rounded-full bg-brand-500 px-1.5 text-center text-[11px] font-semibold leading-5 text-white">{i.badge}</span>
+                  )}
+                </NavLink>
+              ))}
+            </div>
           ))}
         </nav>
         <div className="mt-4 border-t border-slate-200 pt-4 dark:border-ink-800">
@@ -109,7 +156,10 @@ export default function Layout() {
               cx("flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] font-medium",
                 isActive ? "text-brand-500" : "text-slate-500 dark:text-slate-400")}
           >
-            {i.icon}
+            <span className="relative">
+              {i.icon}
+              {!!i.badge && <span className="absolute -right-1.5 -top-1 size-2.5 rounded-full bg-brand-500 ring-2 ring-white dark:ring-ink-900" />}
+            </span>
             {i.mobile}
           </NavLink>
         ))}

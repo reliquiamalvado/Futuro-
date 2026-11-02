@@ -19,11 +19,11 @@ const ACTIONS: Record<string, string> = {
 };
 const ENTITY: Record<string, string> = {
   organizations: "Cliente", org_admins: "Administrador", residences: "Residência", residence_members: "Morador",
-  devices: "Dispositivo", gates: "Portão", gate_residences: "Vínculo portão/residência", invites: "Convite", temp_keys: "Chave temporária",
+  devices: "Dispositivo", gates: "Portão", announcements: "Comunicado", gate_residences: "Vínculo portão/residência", invites: "Convite", temp_keys: "Chave temporária",
 };
 const OP: Record<string, string> = { insert: "criado", update: "alterado", delete: "removido" };
 
-function describe(a: string) {
+export function describeAudit(a: string) {
   if (ACTIONS[a]) return ACTIONS[a];
   const [entity, op] = a.split(".");
   return ENTITY[entity] && OP[op] ? `${ENTITY[entity]} ${OP[op]}` : a;
@@ -74,7 +74,7 @@ export default function AuditPage() {
                   <div className="flex min-w-0 gap-3">
                     {l.severity !== "info" && <ShieldAlert className={`mt-0.5 size-4 shrink-0 ${l.severity === "critico" ? "text-red-500" : "text-amber-500"}`} />}
                     <div className="min-w-0">
-                      <div className="font-medium">{describe(l.action)}</div>
+                      <div className="font-medium">{describeAudit(l.action)}</div>
                       <div className="truncate text-xs text-slate-500">
                         {fmtDate(l.created_at)} · {l.profiles?.full_name || l.profiles?.email || (l.actor_id ? "Usuário" : "Sistema / visitante")}
                       </div>

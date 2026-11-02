@@ -1,11 +1,15 @@
 import { useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Activity, Cpu, DoorClosed, Home, KeyRound, Ticket, UserCheck, Wifi } from "lucide-react";
+import { Activity, Cpu, DoorClosed, Home, KeyRound, Megaphone, ShieldAlert, Ticket, UserCheck, Wifi } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { supabase, type Command, type GateAction, type MyGate } from "../lib/supabase";
 import { ACTION_LABEL, CMD_LABEL, fmtAgo, must, useLoad } from "../lib/util";
 import { Alert, Badge, Button, Card, Empty, Loading, PageHeader, Stat } from "../components/ui";
 import { GateCard } from "../components/GateCard";
+import { DailyBars } from "../components/Charts";
+import { loadReport } from "./Reports";
+import { unreadAnnouncements } from "./Announcements";
+import { describeAudit } from "./Audit";
 
 export async function sendGateCommand(gateId: string, action: GateAction): Promise<string> {
   const r = must(await supabase.rpc("request_gate_command", { p_gate: gateId, p_action: action })) as
@@ -49,6 +53,20 @@ export default function Dashboard() {
     };
   }, [isAdmin, isTitular, profile?.id]);
 
+  const chart = useLoad(async () => {
+    if (!isAdmin) return null;
+    const to = new Date(); to.setHours(0, 0, 0, 0); to.setDate(to.getDate() + 1);
+    const from = new Date(to.getTime() - 14 * 86400_000);
+    return loadReport(null, from, to);
+  }, [isAdmin]);
+  const activity = useLoad(async () => {
+    if (!isAdmin) return [];
+    return must(await supabase.from("audit_logs").select("id, action, severity, created_at, profiles:actor_id(full_name, email)")
+      .order("created_at", { ascending: false }).limit(7)) as unknown as
+      { id: number; action: string; severity: string; created_at: string; profiles: { full_name: string | null; email: string | null } | null }[];
+  }, [isAdmin]);
+  const unread = useLoad(async () => (profile ? unreadAnnouncements(profile.id) : 0), [profile?.id]);
+
   // Atualiza status dos portões periodicamente.
   useEffect(() => {
     const t = setInterval(() => { if (!document.hidden) { gates.reload(true); } }, 5000);
@@ -87,14 +105,58 @@ export default function Dashboard() {
         </Card>
       )}
 
+      {(unread.data ?? 0) > 0 && (
+        <Link to="/comunicados" className="block">
+          <Alert tone="blue">
+            <span className="flex items-center gap-2"><Megaphone className="size-4 shrink-0" />
+              <span>Você tem <b>{unread.data}</b> comunicado(s) não lido(s). Toque para ver.</span></span>
+          </Alert>
+        </Link>
+      )}
+
       {summary.data && (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <Stat label="Residências" value={summary.data.residences} icon={<Home className="size-5" />} />
           {isAdmin && <Stat label={`Dispositivos online de ${summary.data.devices}`} value={summary.data.online} icon={<Wifi className="size-5" />} tone="green" />}
           <Stat label="Acionamentos hoje" value={summary.data.today} icon={<Activity className="size-5" />} tone="blue" />
-          <Link to="/residencias">
+          <Link to={isAdmin ? "/aprovacoes" : "/residencias"}>
             <Stat label="Aprovações pendentes" value={summary.data.pending} icon={<UserCheck className="size-5" />} tone={summary.data.pending ? "amber" : "gray"} />
           </Link>
+        </div>
+      )}
+
+      {isAdmin && (
+        <div className="grid gap-6 lg:grid-cols-3">
+          <Card className="lg:col-span-2">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="font-semibold">Acionamentos nos últimos 14 dias</h2>
+              <Link to="/relatorios" className="text-sm text-brand-500 hover:underline">Relatórios</Link>
+            </div>
+            {chart.loading ? <Loading /> : chart.data ? <DailyBars data={chart.data.por_dia} /> : null}
+          </Card>
+          <Card>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="font-semibold">Atividades recentes</h2>
+              <Link to="/auditoria" className="text-sm text-brand-500 hover:underline">Ver tudo</Link>
+            </div>
+            {!activity.data?.length ? <p className="text-sm text-slate-500">Nenhuma atividade ainda.</p> : (
+              <ul className="space-y-3">
+                {activity.data.map((a) => (
+                  <li key={a.id} className="flex gap-2 text-sm">
+                    {a.severity !== "info"
+                      ? <ShieldAlert className={`mt-0.5 size-4 shrink-0 ${a.severity === "critico" ? "text-red-500" : "text-amber-500"}`} />
+                      : <span className="mt-1.5 size-2 shrink-0 rounded-full bg-slate-300 dark:bg-ink-700" />}
+                    <div className="min-w-0">
+                      <div className="truncate">{describeAudit(a.action)}</div>
+                      <div className="truncate text-xs text-slate-500">
+                        {a.profiles?.full_name || a.profiles?.email || "Sistema"} · {fmtAgo(a.created_at)}
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
         </div>
       )}
 

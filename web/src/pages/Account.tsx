@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Building2, ChevronRight, KeyRound, LogOut, Moon, ShieldCheck, Sun } from "lucide-react";
+import { BarChart3, Building2, ChevronRight, History, Home, KeyRound, LogOut, Moon, ShieldCheck, Sun, UserCog, Users } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { supabase } from "../lib/supabase";
 import { ROLE_LABEL, STATUS_LABEL, errMsg } from "../lib/util";
@@ -38,10 +38,16 @@ export default function AccountPage() {
     if (!error) { setPw(""); setPw2(""); }
   }
 
+  const manager = isAdmin || isTitular;
   const shortcuts = [
-    { to: "/chaves", label: "Chaves temporárias", icon: <KeyRound className="size-5" />, show: isAdmin || isTitular },
+    { to: "/historico", label: "Acionamentos", icon: <History className="size-5" />, show: manager },
+    { to: "/moradores", label: "Moradores", icon: <Users className="size-5" />, show: manager },
+    { to: "/residencias", label: "Residências", icon: <Home className="size-5" />, show: isAdmin },
+    { to: "/chaves", label: "Chaves temporárias", icon: <KeyRound className="size-5" />, show: manager },
+    { to: "/relatorios", label: "Relatórios", icon: <BarChart3 className="size-5" />, show: isAdmin },
+    { to: "/auditoria", label: "Auditoria", icon: <ShieldCheck className="size-5" />, show: isAdmin },
+    { to: "/administradores", label: "Administradores", icon: <UserCog className="size-5" />, show: isAdmin },
     { to: "/organizacoes", label: "Clientes", icon: <Building2 className="size-5" />, show: isSuper },
-    { to: "/auditoria", label: "Auditoria e segurança", icon: <ShieldCheck className="size-5" />, show: isAdmin },
   ].filter((s) => s.show);
 
   return (

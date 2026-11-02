@@ -30,3 +30,7 @@ body {
 
 @keyframes dc-fade-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 .dc-fade { animation: dc-fade-in .25s ease-out both; }
+
+/* Cores dos gráficos (validadas para daltonismo, claro e escuro) */
+:root { --chart-ok: #2a78d6; --chart-fail: #d03b3b; --chart-grid: #e5e7eb; }
+.dark { --chart-ok: #3987e5; --chart-fail: #e66767; --chart-grid: #1e2a45; }

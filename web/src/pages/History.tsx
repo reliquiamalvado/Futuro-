@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { History as HistoryIcon } from "lucide-react";
-import { supabase, type Command } from "../lib/supabase";
-import { ACTION_LABEL, CMD_LABEL, fmtDate, must, useLoad } from "../lib/util";
+import { isOnline, supabase, type Command, type Gate } from "../lib/supabase";
+import { ACTION_LABEL, CMD_LABEL, STATE_LABEL, fmtAgo, fmtDate, must, useLoad } from "../lib/util";
 import { Alert, Badge, Button, Card, Empty, Field, Input, Loading, PageHeader, Select, Table, Td } from "../components/ui";
 
 type Row = Command & {
@@ -31,6 +31,10 @@ export default function HistoryPage() {
     return must(await q) as unknown as Row[];
   }, [status, from, to, limit]);
 
+  const gates = useLoad(async () =>
+    must(await supabase.from("gates").select("*, devices(name, last_seen_at)").order("name")) as unknown as
+      (Gate & { devices: { name: string; last_seen_at: string | null } | null })[]);
+
   function exportCsv() {
     const rows = list.data ?? [];
     const head = ["data", "portao", "residencia", "acao", "origem", "usuario", "resultado", "erro"];
@@ -49,10 +53,34 @@ export default function HistoryPage() {
   return (
     <div>
       <PageHeader
-        title="Histórico de acionamentos"
+        title="Acionamentos"
         subtitle="Quem acionou, quando, qual portão e o resultado informado pelo equipamento."
         actions={<Button variant="secondary" onClick={exportCsv} disabled={!list.data?.length}>Exportar CSV</Button>}
       />
+      {(gates.data ?? []).length > 0 && (
+        <Card className="mb-4">
+          <h2 className="mb-3 text-sm font-semibold">Estado atual dos portões</h2>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {gates.data!.map((g) => {
+              const online = isOnline(g.devices?.last_seen_at ?? null);
+              return (
+                <div key={g.id} className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2 text-sm dark:bg-ink-850">
+                  <div className="min-w-0">
+                    <div className="truncate font-medium">{g.name}</div>
+                    <div className="truncate text-xs text-slate-500">
+                      {g.devices?.name} · {online ? "online" : `offline (${fmtAgo(g.devices?.last_seen_at)})`}
+                    </div>
+                  </div>
+                  <Badge tone={!online ? "red" : g.state === "aberto" ? "green" : g.state === "fechado" ? "gray" : g.state === "movendo" ? "amber" : "gray"} dot>
+                    {online ? STATE_LABEL[g.state] : "Offline"}
+                  </Badge>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
+
       <Card className="mb-4 grid gap-3 sm:grid-cols-3">
         <Field label="Resultado">
           <Select value={status} onChange={(e) => setStatus(e.target.value)}>

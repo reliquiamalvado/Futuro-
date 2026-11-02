@@ -186,4 +186,43 @@ select pg_temp.ok((select count(*) = 0 from admin_notifications), 'admin comum n
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', false);
 select pg_temp.ok((select count(*) = 6 from admin_notifications), 'super admin vê as notificações');
 reset role;
+
+-- ---------- COMUNICADOS E RELATÓRIOS ----------
+-- (a organização A foi excluída acima; recria um cenário mínimo)
+set role authenticated;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', false);
+insert into organizations (name) values ('Condomínio C') returning id as org_c \gset
+select add_org_admin(:'org_c', 'admin@t.com');
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000b', false);
+insert into residences (org_id, name) values (:'org_c', 'Casa 1') returning id as rc1 \gset
+insert into residences (org_id, name) values (:'org_c', 'Casa 2') returning id as rc2 \gset
+select add_residence_member(:'rc1', 'morador@t.com', 'morador');
+select add_residence_member(:'rc2', 'titular@t.com', 'titular');
+insert into announcements (org_id, title, body, created_by) values (:'org_c', 'Manutenção', 'Portão parado amanhã', auth.uid()) returning id as an_all \gset
+insert into announcements (org_id, residence_id, title, body, created_by) values (:'org_c', :'rc2', 'Só Casa 2', 'Aviso específico', auth.uid()) returning id as an_c2 \gset
+select pg_temp.ok((select (report_stats(:'org_c', now() - interval '7 days', now() + interval '1 minute'))->'moradores'->>'ativos' = '2'),
+                  'relatório conta moradores ativos');
+select pg_temp.ok((select jsonb_array_length((report_stats(:'org_c', now() - interval '7 days', now() + interval '1 minute'))->'por_dia') = 8),
+                  'relatório traz série diária');
+
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000d', false);
+select pg_temp.ok((select count(*) = 1 from announcements), 'morador da Casa 1 vê só o comunicado geral');
+insert into announcement_reads (announcement_id, user_id) values (:'an_all', auth.uid());
+select pg_temp.ok(pg_temp.erro(format($$insert into announcements (org_id, title, body, created_by) values (%L, 'x', 'y', auth.uid())$$, :'org_c')) is not null,
+                  'morador não publica comunicado');
+select pg_temp.ok(pg_temp.erro(format($$insert into announcement_reads values (%L, auth.uid())$$, :'an_c2')) is not null,
+                  'morador não marca como lido comunicado que não vê');
+
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000c', false);
+select pg_temp.ok((select count(*) = 2 from announcements), 'titular da Casa 2 vê geral e específico');
+
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000f', false);
+select pg_temp.ok((select count(*) = 0 from announcements), 'admin de outro cliente não vê comunicados');
+select pg_temp.ok((select (report_stats(:'org_c', now() - interval '7 days', now()))->'moradores'->>'ativos' = '0'),
+                  'relatório de outro cliente vem vazio');
+
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000b', false);
+select pg_temp.ok((select count(*) = 1 from announcement_reads), 'admin vê quem leu');
+select pg_temp.ok((select count(*) >= 2 from audit_logs where action = 'announcements.insert'), 'comunicados ficam na auditoria');
+reset role;
 \echo TODOS_OS_TESTES_PASSARAM

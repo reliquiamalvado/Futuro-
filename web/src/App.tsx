@@ -16,6 +16,10 @@ import AuditPage from "./pages/Audit";
 import AccountPage from "./pages/Account";
 import GuestKeyPage from "./pages/GuestKey";
 import { PrivacyPage, TermsPage } from "./pages/Legal";
+import { ApprovalsPage, ResidentsPage } from "./pages/People";
+import ReportsPage from "./pages/Reports";
+import AnnouncementsPage from "./pages/Announcements";
+import AdminsPage from "./pages/Admins";
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const { session, loading } = useAuth();
@@ -57,6 +61,11 @@ export default function App() {
             <Route path="convite" element={<InvitePage />} />
             <Route path="convite/:code" element={<InvitePage />} />
             <Route path="conta" element={<AccountPage />} />
+            <Route path="comunicados" element={<AnnouncementsPage />} />
+            <Route path="aprovacoes" element={<Guard allow={(a) => a.isAdmin || a.isTitular}><ApprovalsPage /></Guard>} />
+            <Route path="moradores" element={<Guard allow={(a) => a.isAdmin || a.isTitular}><ResidentsPage /></Guard>} />
+            <Route path="relatorios" element={<Guard allow={(a) => a.isAdmin}><ReportsPage /></Guard>} />
+            <Route path="administradores" element={<Guard allow={(a) => a.isAdmin}><AdminsPage /></Guard>} />
             <Route path="residencias" element={<Guard allow={(a) => a.isAdmin || a.isTitular}><ResidencesPage /></Guard>} />
             <Route path="residencias/:id" element={<Guard allow={(a) => a.isAdmin || a.isTitular}><ResidenceDetail /></Guard>} />
             <Route path="chaves" element={<Guard allow={(a) => a.isAdmin || a.isTitular}><TempKeysPage /></Guard>} />
