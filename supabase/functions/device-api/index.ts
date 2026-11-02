@@ -1,6 +1,6 @@
-// DigitalControl - API dos equipamentos.
+// AuggeControl - API dos equipamentos.
 //
-// O equipamento (ex.: ESP32 com firmware DigitalControl) se conecta para fora,
+// O equipamento (ex.: ESP32 com firmware AuggeControl) se conecta para fora,
 // por HTTPS, então não é preciso abrir portas no roteador do cliente.
 //
 // Autenticação em todas as rotas:

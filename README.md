@@ -1,4 +1,4 @@
-# DigitalControl
+# AuggeControl
 
 Plataforma de controle de acesso inteligente e automação de portões para
 residências, condomínios e empresas.
@@ -33,7 +33,7 @@ web/                         App React + TypeScript + Tailwind
 supabase/migrations/         Banco: tabelas, RLS, funções (já aplicado no projeto)
 supabase/functions/device-api/  API dos equipamentos (já publicada)
 supabase/tests/              Testes de permissão (rodam num Postgres local)
-firmware/digitalcontrol-esp32/  Firmware do ESP32
+firmware/auggecontrol-esp32/  Firmware do ESP32
 tools/simulador-dispositivo.mjs Simula um equipamento real para testes
 ```
 
@@ -45,7 +45,7 @@ conta antes de divulgar o app.
 
 ### 2. Configurações do Supabase (painel)
 Em **Authentication → URL Configuration**:
-- **Site URL**: o endereço onde o app ficará (ex.: `https://app.digitalcontrol.com.br`).
+- **Site URL**: o endereço onde o app ficará (ex.: `https://app.auggecontrol.com.br`).
 - **Redirect URLs**: adicione `https://SEU-DOMINIO/**` e `http://localhost:5173/**`.
 
 Para **Login com Google**: em **Authentication → Providers → Google**, ative e
@@ -79,9 +79,9 @@ Ligação: cada relé do módulo vai nos bornes de **botoeira** da central do
 portão (contato seco, baixa tensão). Nunca ligue o relé na rede de 127/220 V.
 
 1. Arduino IDE com a placa **esp32 (Espressif)** e a biblioteca **ArduinoJson 7**.
-2. Copie `firmware/digitalcontrol-esp32/config.exemplo.h` para `config.h`,
+2. Copie `firmware/auggecontrol-esp32/config.exemplo.h` para `config.h`,
    preencha o Wi-Fi e cole as 3 linhas de credenciais mostradas no painel.
-3. Carregue `digitalcontrol-esp32.ino`. No Monitor Serial (115200) aparecem
+3. Carregue `auggecontrol-esp32.ino`. No Monitor Serial (115200) aparecem
    as conexões e os comandos recebidos.
 
 Pinos padrão dos relés: 26, 27, 25, 33 (canais 1 a 4). Sensores de

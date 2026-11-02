@@ -18,7 +18,7 @@ function Shell({ title, subtitle, children }: { title: string; subtitle?: string
               Residências, condomínios e empresas abrindo portões com segurança, histórico completo e acessos temporários.
             </p>
           </div>
-          <p className="text-sm text-slate-400">© {new Date().getFullYear()} DigitalControl</p>
+          <p className="text-sm text-slate-400">© {new Date().getFullYear()} AuggeControl</p>
         </div>
       </div>
       <div className="flex flex-1 items-center justify-center px-4 py-10">
@@ -99,7 +99,7 @@ export function LoginPage() {
   sessionStorage.setItem("dc.voltar", from);
 
   return (
-    <Shell title="Entrar" subtitle="Acesse sua conta DigitalControl.">
+    <Shell title="Entrar" subtitle="Acesse sua conta AuggeControl.">
       <GoogleButton />
       <Divider />
       <form onSubmit={submit} className="space-y-4">

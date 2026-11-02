@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Simula um equipamento DigitalControl conectado à API real, para testar o
+// Simula um equipamento AuggeControl conectado à API real, para testar o
 // sistema de ponta a ponta antes de instalar o ESP32.
 //
 // Uso (Node 18+), com as credenciais exibidas ao cadastrar o dispositivo:

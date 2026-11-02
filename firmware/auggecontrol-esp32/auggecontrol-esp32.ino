@@ -1,6 +1,6 @@
-// DigitalControl - firmware para ESP32 + módulo relé.
+// AuggeControl - firmware para ESP32 + módulo relé.
 //
-// O ESP32 conecta para fora (HTTPS) na API do DigitalControl e fica aguardando
+// O ESP32 conecta para fora (HTTPS) na API do AuggeControl e fica aguardando
 // comandos por long-polling. Não é preciso abrir portas no roteador.
 //
 // Bibliotecas: placa "esp32" da Espressif (2.x ou 3.x) e ArduinoJson 7.x.
@@ -188,7 +188,7 @@ void ciclo() {
 void setup() {
   Serial.begin(115200);
   delay(200);
-  Serial.printf("\nDigitalControl ESP32 v%s\n", FIRMWARE_VERSAO);
+  Serial.printf("\nAuggeControl ESP32 v%s\n", FIRMWARE_VERSAO);
 
   for (int i = 0; i < N_RELES; i++) {
     digitalWrite(RELES[i], NIVEL_DESLIGADO);  // nível seguro antes de virar saída

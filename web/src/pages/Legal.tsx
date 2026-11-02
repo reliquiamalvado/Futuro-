@@ -32,7 +32,7 @@ export function PrivacyPage() {
   return (
     <Page title="Política de Privacidade">
       <p>
-        O DigitalControl é uma plataforma de controle de acesso e automação de portões. Esta política explica quais
+        O AuggeControl é uma plataforma de controle de acesso e automação de portões. Esta política explica quais
         dados pessoais tratamos, para quê e quais são os seus direitos, conforme a Lei Geral de Proteção de Dados (LGPD).
       </p>
 
@@ -79,11 +79,11 @@ export function PrivacyPage() {
 export function TermsPage() {
   return (
     <Page title="Termos de Uso">
-      <p>Ao usar o DigitalControl você concorda com estes termos.</p>
+      <p>Ao usar o AuggeControl você concorda com estes termos.</p>
 
       <h2>O serviço</h2>
       <p>
-        O DigitalControl permite acionar portões e gerenciar acessos por meio de equipamentos instalados no local. O
+        O AuggeControl permite acionar portões e gerenciar acessos por meio de equipamentos instalados no local. O
         funcionamento depende de energia, conexão com a internet e do estado dos equipamentos e da central do portão.
       </p>
 

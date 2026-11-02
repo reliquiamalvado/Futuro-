@@ -6,7 +6,7 @@
 #define WIFI_SSID   "NomeDaRede"
 #define WIFI_SENHA  "SenhaDoWifi"
 
-// ---------- DigitalControl ----------
+// ---------- AuggeControl ----------
 // Copie estas 3 linhas da tela "Credenciais" que aparece ao cadastrar o
 // dispositivo em Portões e dispositivos (ou ao gerar um novo segredo).
 #define DC_API_URL    "https://SEU-PROJETO.supabase.co/functions/v1/device-api"

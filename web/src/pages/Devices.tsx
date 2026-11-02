@@ -198,7 +198,7 @@ function CredentialsModal({ c, onClose }: { c: { device_id: string; secret: stri
           Copie agora. Por segurança o segredo <b>não será exibido novamente</b>. Se perder, gere um novo segredo.
         </Alert>
         <p className="text-sm text-slate-600 dark:text-slate-300">
-          Cole estas linhas no arquivo <code className="rounded bg-slate-100 px-1 dark:bg-ink-800">config.h</code> do firmware DigitalControl:
+          Cole estas linhas no arquivo <code className="rounded bg-slate-100 px-1 dark:bg-ink-800">config.h</code> do firmware AuggeControl:
         </p>
         <pre className="overflow-x-auto rounded-xl bg-ink-900 p-4 text-xs text-slate-100">{snippet}</pre>
         <div className="flex gap-2">

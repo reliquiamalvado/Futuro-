@@ -232,7 +232,7 @@ function AddMemberModal({ open, residenceId, isAdmin, onClose, onSaved }: {
   return (
     <Modal open={open} onClose={onClose} title="Adicionar morador">
       <form onSubmit={submit} className="space-y-4">
-        <p className="text-sm text-slate-500">A pessoa precisa já ter conta no DigitalControl. Para quem ainda não tem, gere um convite.</p>
+        <p className="text-sm text-slate-500">A pessoa precisa já ter conta no AuggeControl. Para quem ainda não tem, gere um convite.</p>
         <Field label="E-mail"><Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
         {isAdmin && (
           <Field label="Papel">
@@ -448,7 +448,7 @@ function InviteQr({ invite, onClose }: { invite: Invite; onClose: () => void }) 
   const [qr, setQr] = useState("");
   useEffect(() => { QRCode.toDataURL(link, { width: 480, margin: 1 }).then(setQr); }, [link]);
   const share = async () => {
-    try { await navigator.share({ title: "Convite DigitalControl", text: `Use o código ${invite.code}`, url: link }); } catch { /* cancelado */ }
+    try { await navigator.share({ title: "Convite AuggeControl", text: `Use o código ${invite.code}`, url: link }); } catch { /* cancelado */ }
   };
   return (
     <Modal open onClose={onClose} title="Convite">

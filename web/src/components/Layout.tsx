@@ -20,7 +20,7 @@ export function Logo({ className }: { className?: string }) {
     <div className={cx("flex items-center gap-2.5", className)}>
       <img src="/icon.svg" alt="" className="size-8 rounded-lg" />
       <span className="text-lg font-semibold tracking-tight">
-        Digital<span className="text-brand-500">Control</span>
+        Augge<span className="text-brand-500">Control</span>
       </span>
     </div>
   );

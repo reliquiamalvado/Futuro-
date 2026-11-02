@@ -1,6 +1,6 @@
 {
-  "name": "DigitalControl",
-  "short_name": "DigitalControl",
+  "name": "AuggeControl",
+  "short_name": "AuggeControl",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0a0f1e",
