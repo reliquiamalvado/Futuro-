@@ -185,6 +185,11 @@ export default function InstallDevicePage() {
           className="w-full rounded-xl ring-1 ring-slate-200 dark:ring-ink-800" />
         <a href="/videos/instalacao-portao.mp4" download="instalacao-portao.mp4"
           className="inline-block text-brand-500 underline">Baixar o vídeo da instalação no portão (1,4 MB)</a>
+        <p className="font-medium">Vai instalar você mesmo, com a placa de relé embutido? Veja o passo a passo:</p>
+        <video src="/videos/instalar-voce-mesmo.mp4" controls playsInline preload="metadata"
+          className="w-full rounded-xl ring-1 ring-slate-200 dark:ring-ink-800" />
+        <a href="/videos/instalar-voce-mesmo.mp4" download="instalar-voce-mesmo.mp4"
+          className="inline-block text-brand-500 underline">Baixar o vídeo "Eu mesmo instalo" (1,9 MB)</a>
         <p><b>Recomendação:</b> chame um <b>técnico de portão eletrônico</b> — é um serviço rápido. Mostre esta mensagem a ele:</p>
         <div className="rounded-xl bg-slate-50 p-4 font-mono text-xs leading-relaxed dark:bg-ink-850">
           Ligar os contatos COM e NA do relé nos bornes de BOTOEIRA da central (BOT / PUL / START),
