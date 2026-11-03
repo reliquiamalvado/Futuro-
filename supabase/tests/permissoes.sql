@@ -570,4 +570,12 @@ reset role;
 set role anon;
 select pg_temp.ok(pg_temp.erro($$select export_my_data()$$) is not null, 'anônimo não exporta dados');
 reset role;
+
+-- ---------- SAÚDE DO SISTEMA ----------
+set role authenticated;
+select set_config('request.jwt.claim.sub', :'SUPER', false);
+select pg_temp.ok((select (system_health()) ? 'maior_pct'), 'super admin vê a saúde do sistema');
+select set_config('request.jwt.claim.sub', :'ADMIN', false);
+select pg_temp.ok(pg_temp.erro($$select system_health()$$) is not null, 'administrador comum não vê a saúde do sistema');
+reset role;
 \echo TODOS_OS_TESTES_PASSARAM

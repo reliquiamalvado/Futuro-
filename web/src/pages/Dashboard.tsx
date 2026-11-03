@@ -12,6 +12,7 @@ import { loadReport } from "./Reports";
 import { unreadAnnouncements } from "./Announcements";
 import { describeAudit } from "./Audit";
 import { PROFILE_LABEL, PROFILE_OPTIONS, ProfileChooser, nextPathFor } from "../components/ProfileChooser";
+import { SystemHealthBanner } from "../components/SystemHealth";
 
 export async function commandStatus(id: string) {
   const { data } = await supabase.from("commands").select("status, error").eq("id", id).maybeSingle();
@@ -82,6 +83,8 @@ export default function Dashboard() {
           .map((m) => m.residence_name === m.org_name ? m.residence_name : `${m.residence_name} · ${m.org_name}`).join("  •  ") || undefined}
         actions={<Link to="/convite"><Button variant="secondary"><Ticket className="size-4" /> Usar convite</Button></Link>}
       />
+
+      <SystemHealthBanner />
 
       {superNeedsMfa && (
         <Link to="/conta" className="block">
