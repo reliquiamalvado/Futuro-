@@ -111,7 +111,7 @@ export default function PrivacyCenterPage() {
       }
       if (!data?.ok) throw new Error(data?.erro ?? "Não foi possível excluir a conta.");
       await signOut();
-      nav("/bem-vindo", { replace: true });
+      nav("/login", { replace: true });
     } catch (e) { setDelErr(errMsg(e)); }
     finally { setBusy(null); }
   }

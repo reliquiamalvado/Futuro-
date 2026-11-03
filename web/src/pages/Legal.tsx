@@ -51,7 +51,7 @@ function LegalShell({ kind, title, intro, summary, sections }: {
       <div className="pointer-events-none fixed inset-x-0 top-0 h-[520px] bg-[radial-gradient(ellipse_at_top,rgba(47,123,255,.22),transparent_60%)]" aria-hidden />
 
       <header className="relative z-10 mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-5">
-        <Link to="/bem-vindo"><Logo /></Link>
+        <Link to="/sobre"><Logo /></Link>
         <nav className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-2xl border border-white/10 bg-white/[.03] p-1 text-sm">
           <Link to="/privacidade" className={kind === "privacidade" ? "rounded-xl bg-white px-3 py-1.5 font-semibold text-ink-950" : "rounded-xl px-3 py-1.5 text-slate-300 hover:text-white"}>Privacidade</Link>
           <Link to="/termos" className={kind === "termos" ? "rounded-xl bg-white px-3 py-1.5 font-semibold text-ink-950" : "rounded-xl px-3 py-1.5 text-slate-300 hover:text-white"}><span className="sm:hidden">Termos</span><span className="hidden sm:inline">Termos de uso</span></Link>
@@ -114,7 +114,7 @@ function LegalShell({ kind, title, intro, summary, sections }: {
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-8 text-sm text-slate-400">
           <Logo />
           <div className="flex gap-4">
-            <Link to="/bem-vindo" className="hover:text-white">Conheça o app</Link>
+            <Link to="/sobre" className="hover:text-white">Quem somos</Link>
             <Link to="/privacidade" className="hover:text-white">Privacidade</Link>
             <Link to="/termos" className="hover:text-white">Termos de uso</Link>
             <Link to="/login" className="hover:text-white">Entrar</Link>

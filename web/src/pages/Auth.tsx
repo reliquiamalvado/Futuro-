@@ -13,7 +13,7 @@ function Shell({ title, subtitle, children }: { title: string; subtitle?: string
         <div className="absolute inset-0 lp-grid" />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(47,123,255,.35),transparent_55%),radial-gradient(circle_at_80%_85%,rgba(34,211,238,.18),transparent_50%)]" />
         <div className="relative flex h-full flex-col justify-between p-12 text-white">
-          <Link to="/bem-vindo"><Logo /></Link>
+          <Link to="/sobre"><Logo /></Link>
           <div>
             <h2 className="max-w-md text-4xl font-bold leading-tight tracking-tight">
               Seu portão abre <span className="bg-gradient-to-r from-brand-400 to-cyan-300 bg-clip-text text-transparent">só para você.</span>
@@ -27,7 +27,7 @@ function Shell({ title, subtitle, children }: { title: string; subtitle?: string
               ))}
             </ul>
           </div>
-          <p className="text-sm text-slate-400">© {new Date().getFullYear()} AuggeControl · <Link to="/bem-vindo" className="hover:text-white">Conheça o app</Link></p>
+          <p className="text-sm text-slate-400">© {new Date().getFullYear()} AuggeControl · <Link to="/sobre" className="hover:text-white">Quem somos</Link></p>
         </div>
       </div>
       <div className="flex flex-1 items-center justify-center px-4 py-10">
@@ -121,10 +121,19 @@ export function LoginPage() {
         {error && <Alert>{error}</Alert>}
         <Button type="submit" className="w-full" loading={loading}>Entrar</Button>
       </form>
-      <div className="mt-6 flex justify-between text-sm">
+      <div className="mt-4 text-center text-sm">
         <Link to="/recuperar-senha" className="text-brand-500 hover:underline">Esqueci a senha</Link>
-        <Link to="/cadastro" state={loc.state} className="text-brand-500 hover:underline">Criar conta</Link>
       </div>
+      <div className="mt-6 rounded-2xl border border-slate-200 p-4 text-center dark:border-ink-800">
+        <p className="text-sm text-slate-500">Ainda não tem conta?</p>
+        <Link to="/cadastro" state={loc.state}
+          className="mt-2 inline-flex w-full items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 dark:bg-white dark:text-ink-950 dark:hover:bg-slate-200">
+          Criar conta grátis
+        </Link>
+      </div>
+      <Link to="/sobre" className="mt-4 flex items-center justify-center gap-1.5 text-sm font-medium text-slate-500 hover:text-brand-500">
+        Quem somos: conheça o AuggeControl →
+      </Link>
     </Shell>
   );
 }

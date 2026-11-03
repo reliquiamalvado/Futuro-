@@ -35,7 +35,7 @@ function RequireAuth({ children }: { children: ReactNode }) {
   const { session, loading, needsMfa } = useAuth();
   const loc = useLocation();
   if (loading) return <Loading />;
-  if (!session) return loc.pathname === "/" ? <Navigate to="/bem-vindo" replace /> : <Navigate to="/login" replace state={{ from: loc.pathname }} />;
+  if (!session) return <Navigate to="/login" replace state={loc.pathname === "/" ? undefined : { from: loc.pathname }} />;
   if (needsMfa) {
     sessionStorage.setItem("dc.voltar", loc.pathname);
     return <Navigate to="/verificar-2fa" replace />;
@@ -78,7 +78,8 @@ export default function App() {
           <Route path="/verificar-2fa" element={<MfaGate />} />
           <Route path="/privacidade" element={<PrivacyPage />} />
           <Route path="/termos" element={<TermsPage />} />
-          <Route path="/bem-vindo" element={<LandingPage />} />
+          <Route path="/sobre" element={<LandingPage />} />
+          <Route path="/bem-vindo" element={<Navigate to="/sobre" replace />} />
 
           <Route element={<RequireAuth><UnlockProvider><Layout /></UnlockProvider></RequireAuth>}>
             <Route index element={<Dashboard />} />
