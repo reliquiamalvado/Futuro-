@@ -38,6 +38,10 @@ async function mock(route) {
       if (r === "register-options") return json(await core.registrationOptions(store, { id: UID, email: user.email, name: "João" }, rp));
       if (r === "register-verify") return (await core.verifyRegistration(store, UID, body.response, rp, body.device_name)) ? json({ ok: true }) : json({ erro: "falhou" }, 400);
       if (r === "auth-options") return json(await core.authenticationOptions(store, UID, rp));
+      if (r === "verify") {
+        const ok = await core.verifyAuthentication(store, UID, body.response, rp);
+        return ok ? json({ ticket: "tiquete-bio" }) : json({ erro: "Biometria não confirmada." }, 403);
+      }
       if (r === "open") {
         const ok = await core.verifyAuthentication(store, UID, body.response, rp);
         return ok ? json({ ok: true, command_id: "cmd-bio" }) : json({ erro: "Biometria não confirmada." }, 403);
@@ -57,6 +61,7 @@ async function mock(route) {
       if (body.p_pin === db.pinOk) return json({ ok: true, command_id: "cmd-pin" });
       return json({ ok: false, confirmacao: "necessaria", erro: "Senha de abertura incorreta." });
     }
+    case "set_gate_pin_biometric": db.calls.push("pinbio:" + body.p_ticket); return json(body.p_ticket === "tiquete-bio" ? { ok: true } : { ok: false, erro: "Confirmação expirada." });
     case "commands": return json(q.includes("id=eq.") ? { status: "sucesso", error: null } : []);
   }
   return json([]);
@@ -96,8 +101,9 @@ check(db.calls.includes("pin:8264"), "senha certa aciona o portão");
 // 4) Cadastrar digital/rosto em Minha conta
 await page.goto(APP + "/conta#abertura");
 await page.waitForSelector("text=Segurança para abrir o portão");
-await page.click("button:has-text('Cadastrar a digital/rosto deste aparelho')");
-await page.waitForSelector("text=Biometria cadastrada neste aparelho", { timeout: 10000 });
+await page.waitForTimeout(800); // desafio da biometria é preparado antes do toque (exigência do iPhone)
+await page.click("button:has-text('Cadastrar digital ou rosto')");
+await page.waitForSelector("text=cadastrado neste aparelho", { timeout: 10000 });
 check(db.creds.size === 1, "biometria cadastrada e validada pelo servidor");
 await page.locator("#abertura").scrollIntoViewIfNeeded();
 await page.screenshot({ path: `${OUT}/41-conta-seguranca-abertura.png`, fullPage: true });
@@ -111,16 +117,29 @@ await page.waitForTimeout(500); await page.screenshot({ path: `${OUT}/42-confirm
 await page.click("button:has-text('Confirmar com digital ou rosto')");
 await page.waitForSelector("text=Comando executado pelo equipamento", { timeout: 10000 });
 check(db.calls.includes("open"), "digital/rosto confirmados abrem o portão");
+check(db.calls.lastIndexOf("auth-options") < db.calls.lastIndexOf("open") && db.calls.indexOf("auth-options") >= 0, "desafio buscado antes do toque (funciona no iPhone)");
 check(db.creds.values().next().value.counter >= 0 && db.creds.values().next().value.last_used_at !== null, "uso da biometria fica registrado");
 
 // 6) Cancelar não aciona nada
-const before = db.calls.length;
+const acts = () => db.calls.filter((c) => c !== "auth-options").length;
+const before = acts();
 await page.waitForTimeout(3600);
 await page.click("button:has-text('Acionar portão')");
 await page.waitForSelector("text=Confirmar com digital ou rosto");
 await page.click("button[aria-label='Fechar']");
 await page.waitForTimeout(500);
-check(db.calls.length === before && !(await page.isVisible("text=Comando executado")), "cancelar não aciona o portão");
+check(acts() === before && !(await page.isVisible("text=Comando executado")), "cancelar não aciona o portão");
+
+// 7) Esqueci a senha de abertura: nova senha confirmada com a biometria (não gasta a chance)
+await page.goto(APP + "/conta?esqueci=1#abertura");
+await page.waitForSelector("text=Recupere com digital ou rosto");
+await page.fill("input[autocomplete='new-password'] >> nth=0", "4826");
+await page.fill("input[autocomplete='new-password'] >> nth=1", "4826");
+await page.check("text=Anotei minha senha");
+await page.waitForTimeout(800);
+await page.click("button:has-text('Salvar confirmando com digital ou rosto')");
+await page.waitForSelector("text=Sua chance de recuperação continua guardada", { timeout: 10000 });
+check(db.calls.includes("verify") && db.calls.includes("pinbio:tiquete-bio"), "esqueci a senha: biometria confirma e cria nova senha");
 
 check(errs.length === 0, "nenhum erro de JavaScript" + (errs.length ? ": " + errs.join(" | ") : ""));
 await browser.close();

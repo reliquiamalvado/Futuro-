@@ -5,6 +5,7 @@
 //   /unlock/register-verify   { response, device_name } → salva a credencial
 //   /unlock/auth-options                               → desafio para confirmar
 //   /unlock/open              { response, gate_id, action } → confere a biometria e aciona o portão
+//   /unlock/verify            { response }          → confere a biometria e devolve um tíquete de 60 s
 //
 // Cadastrar biometria exige login recente (≤ 10 min) ou a senha de abertura,
 // para que um celular roubado com o app aberto não cadastre a digital do ladrão.
@@ -146,6 +147,15 @@ Deno.serve(async (req) => {
       });
       if (error) throw error;
       return json(200, data);
+    }
+
+    // Só confere a biometria e devolve um tíquete de 60 s (ex.: criar nova senha de abertura).
+    if (route === "verify") {
+      const ok = await core.verifyAuthentication(store, user.id, body.response, rp);
+      if (!ok) return json(403, { erro: "Biometria não confirmada." });
+      const { data: ticket, error } = await admin.rpc("issue_unlock_ticket", { p_user: user.id });
+      if (error) throw error;
+      return json(200, { ticket });
     }
 
     return json(404, { erro: "rota não encontrada" });

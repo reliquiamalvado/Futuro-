@@ -17,6 +17,7 @@ const ACTION_LABEL: Record<string, string> = {
   "abertura.senha_trocada": "Senha de abertura trocada",
   "abertura.senha_recuperada": "Senha de abertura recuperada (chance usada)",
   "abertura.senha_liberada_admin": "Administrador liberou uma nova senha de abertura",
+  "abertura.senha_recuperada_biometria": "Senha de abertura recuperada com a biometria",
   "abertura.senha_bloqueada": "Senha de abertura bloqueada por tentativas erradas",
   "abertura.biometria_cadastrada": "Digital/rosto cadastrado",
   "acionamento.super_admin": "Portão acionado (super admin)",

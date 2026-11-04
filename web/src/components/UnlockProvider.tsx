@@ -4,7 +4,7 @@ import { Delete, Fingerprint, KeyRound, Lock, ScanFace } from "lucide-react";
 import type { GateAction } from "../lib/supabase";
 import { ACTION_LABEL, errMsg } from "../lib/util";
 import {
-  CancelledError, biometricAvailable, getUnlockMethods, openWithBiometric, openWithPin, type UnlockMethods,
+  CancelledError, biometricAvailable, getUnlockMethods, openWithBiometric, openWithPin, prepareAuthentication, biometricName, OPTIONS_TTL_MS, type UnlockMethods,
 } from "../lib/unlock";
 import { Alert, Button, Modal, Spinner, cx } from "./ui";
 
@@ -44,6 +44,9 @@ function UnlockDialog({ p, onClose }: { p: Pending; onClose: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const done = useRef(false);
+  // Desafio da biometria buscado antes do toque (o iPhone exige o Face ID logo após o toque).
+  const prepared = useRef<{ at: number; opts: Awaited<ReturnType<typeof prepareAuthentication>> } | null>(null);
+  const bioName = biometricName();
 
   const finish = (id: string) => { done.current = true; p.resolve(id); onClose(); };
   const cancel = () => { if (!done.current) p.reject(new CancelledError()); onClose(); };
@@ -55,6 +58,7 @@ function UnlockDialog({ p, onClose }: { p: Pending; onClose: () => void }) {
       const canBio = b && !!m && m.biometrias > 0;
       setBioOk(canBio);
       if (m && !canBio && m.pin) setMode("pin");
+      if (canBio) prepareAuthentication().then((opts) => { prepared.current = { at: Date.now(), opts }; }).catch(() => {});
     })();
   }, []);
 
@@ -67,8 +71,14 @@ function UnlockDialog({ p, onClose }: { p: Pending; onClose: () => void }) {
 
   async function useBiometric() {
     setBusy(true); setError(null);
-    try { handleResult(await openWithBiometric(p.gateId, p.action)); }
-    catch (e) { if (!(e instanceof CancelledError)) setError(errMsg(e)); }
+    const fresh = prepared.current && Date.now() - prepared.current.at < OPTIONS_TTL_MS ? prepared.current.opts : undefined;
+    prepared.current = null;
+    try { handleResult(await openWithBiometric(p.gateId, p.action, fresh)); }
+    catch (e) {
+      if (e instanceof CancelledError) setError(`${bioName} cancelado ou não reconhecido. Toque de novo ou use a senha de abertura.`);
+      else setError(errMsg(e));
+      prepareAuthentication().then((opts) => { prepared.current = { at: Date.now(), opts }; }).catch(() => {});
+    }
     finally { setBusy(false); }
   }
 
@@ -129,7 +139,7 @@ function UnlockDialog({ p, onClose }: { p: Pending; onClose: () => void }) {
                   {busy ? <Spinner className="size-9 text-white" /> : (
                     <span className="flex gap-3"><Fingerprint className="size-9" /><ScanFace className="size-9" /></span>
                   )}
-                  Confirmar com digital ou rosto
+                  Confirmar com {bioName}
                 </button>
               )}
               {methods.pin && (

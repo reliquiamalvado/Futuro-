@@ -578,4 +578,25 @@ select pg_temp.ok((select (system_health()) ? 'maior_pct'), 'super admin vê a s
 select set_config('request.jwt.claim.sub', :'ADMIN', false);
 select pg_temp.ok(pg_temp.erro($$select system_health()$$) is not null, 'administrador comum não vê a saúde do sistema');
 reset role;
+
+-- ---------- NOVA SENHA DE ABERTURA PELA BIOMETRIA ----------
+set role authenticated;
+select set_config('request.jwt.claim.sub', :'MOR', false);
+select pg_temp.ok((select (set_gate_pin_biometric('4826', 'tiquete-falso'))->>'ok' = 'false'), 'sem biometria confirmada não troca a senha');
+reset role;
+select issue_unlock_ticket(:'MOR') as tbio \gset
+set role authenticated;
+select pg_temp.ok((select (set_gate_pin_biometric('1234', :'tbio'))->>'ok' = 'false'), 'senha fraca é recusada mesmo com biometria');
+reset role;
+select issue_unlock_ticket(:'MOR') as tbio2 \gset
+set role authenticated;
+select pg_temp.ok((select (set_gate_pin_biometric('4826', :'tbio2'))->>'ok' = 'true'), 'biometria confirmada cria nova senha');
+select pg_temp.ok((select (my_unlock_methods())->>'recuperacoes_restantes' = '1'), 'recuperar pela biometria não gasta a chance');
+select pg_temp.ok((select (set_gate_pin_biometric('5937', :'tbio2'))->>'ok' = 'false'), 'tíquete da biometria vale uma vez só');
+select set_config('request.jwt.claim.sub', :'TIT', false);
+reset role;
+select issue_unlock_ticket(:'MOR') as tbio3 \gset
+set role authenticated;
+select pg_temp.ok((select (set_gate_pin_biometric('5937', :'tbio3'))->>'ok' = 'false'), 'tíquete de outra pessoa não serve');
+reset role;
 \echo TODOS_OS_TESTES_PASSARAM
