@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light only">
+<title>Confirme seu novo e-mail</title>
+</head>
+<body style="margin:0;padding:0;background:#eef2f7;font-family:Arial,Helvetica,sans-serif;color:#14232b;">
+<span style="display:none;max-height:0;overflow:hidden;opacity:0;">Confirme a troca de e-mail da sua conta AuggeControl.</span>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eef2f7;padding:32px 12px;">
+  <tr><td align="center">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 8px 30px rgba(10,15,30,.08);">
+      <tr><td style="background:#05080f;background-image:linear-gradient(135deg,#0a1630 0%,#05080f 60%,#062a33 100%);padding:28px 32px;">
+        <table role="presentation" cellpadding="0" cellspacing="0"><tr>
+          <td style="width:36px;height:36px;border-radius:10px;background:#2f7bff;text-align:center;vertical-align:middle;font-size:18px;font-weight:bold;color:#ffffff;">A</td>
+          <td style="padding-left:10px;font-size:20px;font-weight:bold;color:#ffffff;">Augge<span style="color:#5b97ff;">Control</span></td>
+        </tr></table>
+        <p style="margin:22px 0 0;font-size:24px;line-height:1.25;font-weight:bold;color:#ffffff;">Confirme seu novo e-mail</p>
+        <p style="margin:8px 0 0;font-size:15px;line-height:1.5;color:#b8c4d6;">Você pediu para trocar o e-mail da sua conta.</p>
+      </td></tr>
+      <tr><td style="padding:28px 32px 8px;">
+        <p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#334155;">Olá,</p>
+        <p style="margin:0 0 24px;font-size:16px;line-height:1.6;color:#334155;">Para usar o endereço {{ .NewEmail }} na sua conta AuggeControl, confirme tocando no botão abaixo.</p>
+        <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr><td align="center">
+          <a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#2f7bff;background-image:linear-gradient(90deg,#2f7bff,#06b6d4);color:#ffffff;text-decoration:none;font-size:16px;font-weight:bold;padding:15px 34px;border-radius:14px;">Confirmar novo e-mail</a>
+        </td></tr></table>
+        <p style="margin:24px 0 0;font-size:13px;line-height:1.6;color:#64748b;">Se você não pediu esta troca, ignore este e-mail e troque a sua senha em Minha conta.</p>
+      </td></tr>
+      <tr><td style="padding:16px 32px 8px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;border-radius:14px;">
+          <tr><td style="padding:14px 16px;font-size:13px;line-height:1.6;color:#475569;">
+            <b style="color:#14232b;">&#128274; Dica de segurança:</b> trocas de e-mail ficam registradas na sua <b>Central de Privacidade e Segurança</b>.
+          </td></tr>
+        </table>
+      </td></tr>
+      <tr><td style="padding:16px 32px 28px;">
+        <p style="margin:0;font-size:12px;line-height:1.6;color:#94a3b8;">O botão não funcionou? Copie e cole este endereço no navegador:<br>
+        <span style="color:#2f7bff;word-break:break-all;">{{ .ConfirmationURL }}</span></p>
+      </td></tr>
+      <tr><td style="border-top:1px solid #e2e8f0;padding:18px 32px;text-align:center;">
+        <p style="margin:0;font-size:12px;line-height:1.6;color:#94a3b8;">
+          Enviado para {{ .Email }} pelo AuggeControl, o app que abre o seu portão só para você.<br>
+          Nunca pedimos a sua senha por e-mail, WhatsApp ou telefone.
+        </p>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>
