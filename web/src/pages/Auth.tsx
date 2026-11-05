@@ -265,8 +265,10 @@ export function ResetPasswordPage() {
   const nav = useNavigate();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [show, setShow] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState(false);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -276,21 +278,62 @@ export function ResetPasswordPage() {
     const { error } = await supabase.auth.updateUser({ password });
     setLoading(false);
     if (error) return setError(errMsg(error));
-    nav("/", { replace: true });
+    setDone(true);
+  }
+
+  if (done) {
+    return (
+      <Shell title="Senha alterada" subtitle="Pronto! Sua nova senha já está valendo.">
+        <div className="space-y-4">
+          <Alert tone="green">Da próxima vez, entre com o seu e-mail e a <b>nova senha</b>.</Alert>
+          <p className="text-sm text-slate-500">
+            A senha de <b>abrir o portão</b> é outra e não mudou. Se esqueceu também essa, recupere em Minha conta.
+          </p>
+          <Button className="w-full" onClick={() => nav("/", { replace: true })}>Ir para o AuggeControl</Button>
+        </div>
+      </Shell>
+    );
   }
 
   return (
-    <Shell title="Nova senha" subtitle="Escolha uma nova senha para sua conta.">
+    <Shell title="Crie sua nova senha" subtitle="Você chegou pelo link do e-mail. Escolha uma senha nova para entrar no app.">
       <form onSubmit={submit} className="space-y-4">
-        <Field label="Nova senha">
-          <Input type="password" autoComplete="new-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+        <Field label="Nova senha" hint="Pelo menos 8 caracteres. Misture letras e números.">
+          <Input type={show ? "text" : "password"} autoComplete="new-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
         </Field>
-        <Field label="Confirmar senha">
-          <Input type="password" autoComplete="new-password" required value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+        <Field label="Repita a nova senha">
+          <Input type={show ? "text" : "password"} autoComplete="new-password" required value={confirm} onChange={(e) => setConfirm(e.target.value)} />
         </Field>
+        <label className="flex items-center gap-2 text-sm text-slate-500">
+          <input type="checkbox" checked={show} onChange={(e) => setShow(e.target.checked)} className="size-4" /> Mostrar senha
+        </label>
         {error && <Alert>{error}</Alert>}
         <Button type="submit" className="w-full" loading={loading}>Salvar nova senha</Button>
       </form>
+    </Shell>
+  );
+}
+
+const LINK_ERROS: Record<string, { titulo: string; texto: string }> = {
+  otp_expired: { titulo: "Este link expirou", texto: "Por segurança, os links do e-mail valem por pouco tempo e só uma vez. Peça um novo, é rapidinho." },
+  default: { titulo: "Este link não funciona mais", texto: "Ele pode já ter sido usado, ter vencido ou ter sido copiado pela metade. Peça um novo link." },
+};
+
+/** Quando o link do e-mail vence ou já foi usado, explica e oferece um novo. */
+export function LinkErrorPage() {
+  const params = new URLSearchParams(window.location.search);
+  const info = LINK_ERROS[params.get("codigo") ?? ""] ?? LINK_ERROS.default;
+  return (
+    <Shell title={info.titulo} subtitle={info.texto}>
+      <div className="space-y-3">
+        <Link to="/recuperar-senha" className="inline-flex w-full items-center justify-center rounded-xl bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-600">
+          Enviar um novo link de senha
+        </Link>
+        <Link to="/login" className="inline-flex w-full items-center justify-center rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold dark:border-ink-800">
+          Ir para o login
+        </Link>
+        <p className="pt-2 text-xs text-slate-500">Dica: abra o link no mesmo celular ou computador em que você pediu, e use sempre o e-mail mais recente.</p>
+      </div>
     </Shell>
   );
 }

@@ -5,7 +5,7 @@ import { Loading } from "./components/ui";
 import { safePath } from "./lib/util";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import Layout from "./components/Layout";
-import { ForgotPasswordPage, LoginPage, ResetPasswordPage, SignupPage } from "./pages/Auth";
+import { ForgotPasswordPage, LinkErrorPage, LoginPage, ResetPasswordPage, SignupPage } from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import HistoryPage from "./pages/History";
 import InvitePage from "./pages/Invite";
@@ -64,6 +64,15 @@ function MfaGate() {
   return <MfaVerifyPage />;
 }
 
+// Link do e-mail vencido/usado: o Supabase volta com "#error=..." na URL. Mostramos uma tela que explica.
+(function linkErrorFromHash() {
+  const h = new URLSearchParams(window.location.hash.slice(1));
+  if (h.get("error") || h.get("error_code")) {
+    const code = h.get("error_code") ?? "";
+    window.history.replaceState(null, "", "/link-invalido?codigo=" + encodeURIComponent(code));
+  }
+})();
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -73,6 +82,7 @@ export default function App() {
           <Route path="/login" element={<PublicOnly><LoginPage /></PublicOnly>} />
           <Route path="/cadastro" element={<PublicOnly><SignupPage /></PublicOnly>} />
           <Route path="/recuperar-senha" element={<ForgotPasswordPage />} />
+          <Route path="/link-invalido" element={<LinkErrorPage />} />
           <Route path="/redefinir-senha" element={<RequireAuth><ResetPasswordPage /></RequireAuth>} />
           <Route path="/k/:token" element={<GuestKeyPage />} />
           <Route path="/verificar-2fa" element={<MfaGate />} />
