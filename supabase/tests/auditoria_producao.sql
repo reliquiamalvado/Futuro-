@@ -58,7 +58,7 @@ select 'catálogo', 'funções internas chamáveis pelo app',
  where n.nspname = 'public'
    and p.proname in ('device_auth','device_poll','device_ack','device_set_states','device_auth_failed',
                      'device_ip_blocked','notify_secret_ok','enqueue_command','log_event','temp_key_check',
-                     'check_gate_pin','issue_unlock_ticket','consume_unlock_ticket','session_is_fresh','pin_is_weak')
+                     'check_gate_pin','issue_unlock_ticket','consume_unlock_ticket','session_is_fresh','pin_is_weak','pair_device')
    and (has_function_privilege('authenticated', p.oid, 'execute') or has_function_privilege('anon', p.oid, 'execute'))
 union all
 select 'catálogo', 'tabelas no tempo real (realtime)',
@@ -82,7 +82,9 @@ insert into resultado values
  ('anônimo', 'criar cliente',              pg_temp.executa($$insert into public.organizations(name) values ('x') returning id::text$$)),
  ('anônimo', 'virar super admin',          pg_temp.executa($$select public.set_super_admin(gen_random_uuid(), true)::text$$)),
  ('anônimo', 'abrir portão',               pg_temp.executa($$select public.request_gate_command(gen_random_uuid(), 'pulso')::text$$)),
- ('anônimo', 'fingir ser equipamento',     pg_temp.executa($$select public.device_poll(gen_random_uuid(), null, null)::text$$));
+ ('anônimo', 'fingir ser equipamento',     pg_temp.executa($$select public.device_poll(gen_random_uuid(), null, null)::text$$)),
+ ('anônimo', 'baixar dados de alguém',     pg_temp.executa($$select public.export_my_data()::text$$)),
+ ('anônimo', 'ver saúde do sistema',       pg_temp.executa($$select public.system_health()::text$$));
 reset role;
 
 -- ---------- 3. Ataques como usuário logado sem permissão ----------
@@ -113,7 +115,14 @@ insert into resultado values
  ('logado', 'ler hashes de senha de abertura', pg_temp.tenta('select * from public.gate_pins')),
  ('logado', 'emitir tíquete de abertura',  pg_temp.executa($$select public.issue_unlock_ticket(auth.uid())$$)),
  ('logado', 'cadastrar biometria direto',  pg_temp.executa($$insert into public.webauthn_credentials(id, user_id, public_key) values ('x', auth.uid(), 'y') returning id$$)),
- ('logado', 'criar senha com sessão antiga', (select case when (public.set_gate_pin('8264'))->>'ok' = 'true' then 'FALHA: criou' else 'BLOQUEADO (pede novo login)' end)));
+ ('logado', 'criar senha com sessão antiga', (select case when (public.set_gate_pin('8264'))->>'ok' = 'true' then 'FALHA: criou' else 'BLOQUEADO (pede novo login)' end)),
+ ('logado', 'ver saúde do sistema',        pg_temp.executa($$select public.system_health()::text$$)),
+ ('logado', 'ver senhas de outro local',   pg_temp.tenta($$select * from public.org_pin_status(gen_random_uuid())$$)),
+ ('logado', 'liberar senha de outra pessoa', pg_temp.executa($$select public.admin_reset_gate_pin(gen_random_uuid(), gen_random_uuid())::text$$)),
+ ('logado', 'ver atividade de outra conta', pg_temp.tenta($$select * from public.my_activity()$$)),
+ ('logado', 'senha pela biometria sem confirmar', (select case when (public.set_gate_pin_biometric('4826', 'falso'))->>'ok' = 'true' then 'FALHA: trocou' else 'BLOQUEADO (sem biometria)' end)),
+ ('logado', 'parear equipamento direto',   pg_temp.executa($$select public.pair_device('ABCDEFGH', '1.1.1.1')::text$$)),
+ ('logado', 'exportar dados de outra pessoa', (select case when (public.export_my_data())->'perfil' = 'null'::jsonb or (public.export_my_data())->'perfil' is null then 'BLOQUEADO (só os próprios dados)' else 'FALHA: trouxe perfil' end));
 reset role;
 
 select grupo, teste, resultado,
