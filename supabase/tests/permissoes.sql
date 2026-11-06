@@ -643,4 +643,22 @@ select pg_temp.ok((select count(*) = 1 from gates g join gate_residences gr on g
                     where gr.residence_id = :'rauto' and g.device_id is null), 'casa criada pelo assistente também ganha o portão');
 reset role;
 
+-- ---------- ATAQUE: DONO DE CASA VIRA CONDOMÍNIO ----------
+set role authenticated;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000b', false);
+select set_config('request.jwt.claim.aal', 'aal2', false);
+select (create_home('Casa Golpe')->>'org_id') as org_golpe \gset
+select pg_temp.ok(pg_temp.erro(format($$update organizations set kind = 'condominio' where id = %L$$, :'org_golpe')) is not null,
+                  'dono de casa não transforma a casa em condomínio');
+select pg_temp.ok(pg_temp.erro(format($$update organizations set created_by = '00000000-0000-0000-0000-00000000000a' where id = %L$$, :'org_golpe')) is not null,
+                  'dono de casa não troca o criador do cliente');
+select pg_temp.ok(pg_temp.erro(format($$update organizations set name = 'Casa Nova' where id = %L$$, :'org_golpe')) is null,
+                  'dono de casa continua podendo renomear');
+select pg_temp.ok(pg_temp.erro(format($$update residences set id = gen_random_uuid() where id = %L$$, :'rc1')) is not null,
+                  'identificador da residência não muda');
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', false);
+select pg_temp.ok(pg_temp.erro(format($$update organizations set kind = 'condominio' where id = %L$$, :'org_golpe')) is null,
+                  'super admin pode mudar o tipo do cliente');
+reset role;
+
 \echo TODOS_OS_TESTES_PASSARAM
