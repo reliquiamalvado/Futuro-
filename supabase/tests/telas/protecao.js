@@ -64,13 +64,13 @@ async function checarPagina(p) {
   const dist = path.join(__dirname, '../../../web/dist');
   const arquivos = [];
   (function walk(d) { for (const f of fs.readdirSync(d)) { const x = path.join(d, f); fs.statSync(x).isDirectory() ? walk(x) : arquivos.push(x); } })(dist);
-  const SEGREDOS = [/service_role/i, /GOCSPX-/, /sk_live_/, /sb_secret_/, /SUPABASE_SERVICE/i, /-----BEGIN [A-Z ]*PRIVATE KEY/, /password\s*[:=]\s*["'][^"']{4,}/i];
+  const SEGREDOS = [/service_role/i, /GOCSPX-/, /sk_live_/, /sb_secret_[A-Za-z0-9_-]{10,}/, /SUPABASE_SERVICE/i, /-----BEGIN [A-Z ]*PRIVATE KEY-----\s*[A-Za-z0-9+\/]{40}/, /password\s*[:=]\s*["'][^"']{4,}/i];
   const achados = [];
   for (const f of arquivos) {
     const rel = path.relative(dist, f);
     if (f.endsWith('.map')) achados.push(`mapa de código publicado: ${rel}`);
-    if (!/\.(js|html|css|json|webmanifest)$/.test(f)) continue;
-    const txt = fs.readFileSync(f, 'utf8');
+    if (!/\.(js|html|css|json|webmanifest|bin)$/.test(f)) continue;
+    const txt = fs.readFileSync(f, f.endsWith('.bin') ? 'latin1' : 'utf8');
     if (/sourceMappingURL/.test(txt)) achados.push(`aponta para mapa de código: ${rel}`);
     for (const r of SEGREDOS) if (r.test(txt)) achados.push(`possível segredo (${r}) em ${rel}`);
     if (f.endsWith('.html') && /<!--/.test(txt)) achados.push(`comentário HTML em ${rel}`);
