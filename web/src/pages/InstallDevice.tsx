@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { CheckCircle2, Cpu, Laptop, Smartphone, Usb, Wifi, Wrench } from "lucide-react";
+import { CheckCircle2, Laptop, Smartphone, Usb, Wifi } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { isOnline, supabase, type Device, type Gate } from "../lib/supabase";
 import { errMsg, must, useLoad } from "../lib/util";
@@ -110,7 +110,7 @@ export default function InstallDevicePage() {
   return (
     <div className="mx-auto max-w-3xl space-y-4">
       <PageHeader title="Instalar equipamento"
-        subtitle="Passo a passo, sem programar nada. Leva uns 15 minutos (sem contar a ligação no portão)." />
+        subtitle="Grave o AuggeControl na placa e conecte à sua conta. Sem programar nada." />
       {error && <Alert>{error}</Alert>}
       {gate.data && (
         <Alert tone={gate.data.device_id ? "green" : "amber"}>
@@ -120,23 +120,7 @@ export default function InstallDevicePage() {
         </Alert>
       )}
 
-      <Step n={1} title="O que comprar" icon={<Cpu className="size-4" />}>
-        <p>Kit recomendado: funciona direto, sem solda e sem ajustar nada (as peças só se encaixam com 3 fios).</p>
-        <ul className="list-disc space-y-1 pl-5">
-          <li><b>ESP32 DevKit V1</b> (30 ou 38 pinos, com entrada USB).</li>
-          <li><b>Módulo relé 5 V, 1 canal</b> (2 canais se forem 2 portões).</li>
-          <li><b>3 jumpers fêmea-fêmea</b>: VIN → VCC, GND → GND, D26 → IN.</li>
-          <li><b>Cabo USB de dados</b> (alguns cabos só carregam) e um <b>carregador de celular</b> comum.</li>
-          <li><b>Caixinha plástica</b> para proteger da chuva.</li>
-        </ul>
-        <video src="/videos/montagem-auggecontrol.mp4" controls playsInline preload="metadata"
-          className="w-full rounded-xl ring-1 ring-slate-200 dark:ring-ink-800" />
-        <a href="/videos/montagem-auggecontrol.mp4" download="montagem-auggecontrol.mp4"
-          className="inline-block text-brand-500 underline">Baixar o vídeo da montagem (1,5 MB)</a>
-        <p className="text-xs text-slate-500">Placas “ESP32 com relé integrado” também funcionam, mas muitas não têm USB e usam outros pinos — só para técnicos.</p>
-      </Step>
-
-      <Step n={2} title="Gravar o AuggeControl na placa" icon={<Usb className="size-4" />}>
+      <Step n={1} title="Gravar o AuggeControl na placa" icon={<Usb className="size-4" />}>
         <p className="flex items-center gap-2"><Laptop className="size-4" /> Use um <b>computador</b> com o navegador <b>Chrome</b> ou <b>Edge</b>.</p>
         <ol className="list-decimal space-y-1 pl-5">
           <li>Ligue a placa no computador pelo cabo USB.</li>
@@ -157,7 +141,7 @@ export default function InstallDevicePage() {
         <p className="text-xs text-slate-500">Se a placa não aparecer: troque o cabo USB, ou instale o driver “CP210x” / “CH340” (depende da placa).</p>
       </Step>
 
-      <Step n={3} title="Conectar o equipamento à sua conta" icon={<Smartphone className="size-4" />} done={online}>
+      <Step n={2} title="Conectar o equipamento à sua conta" icon={<Smartphone className="size-4" />} done={online}>
         {adminOrgs.length > 1 && (
           <Field label="Casa / condomínio">
             <Select value={org} onChange={(e) => { setOrg(e.target.value); setParams({}); setCode(null); }}>
@@ -219,28 +203,6 @@ export default function InstallDevicePage() {
         )}
       </Step>
 
-      <Step n={4} title="Ligar no portão" icon={<Wrench className="size-4" />}>
-        <video src="/videos/instalacao-portao.mp4" controls playsInline preload="metadata"
-          className="w-full rounded-xl ring-1 ring-slate-200 dark:ring-ink-800" />
-        <a href="/videos/instalacao-portao.mp4" download="instalacao-portao.mp4"
-          className="inline-block text-brand-500 underline">Baixar o vídeo da instalação no portão (1,4 MB)</a>
-        <p className="font-medium">Vai instalar você mesmo, com a placa de relé embutido? Veja o passo a passo:</p>
-        <video src="/videos/instalar-voce-mesmo.mp4" controls playsInline preload="metadata"
-          className="w-full rounded-xl ring-1 ring-slate-200 dark:ring-ink-800" />
-        <a href="/videos/instalar-voce-mesmo.mp4" download="instalar-voce-mesmo.mp4"
-          className="inline-block text-brand-500 underline">Baixar o vídeo "Eu mesmo instalo" (1,9 MB)</a>
-        <p><b>Recomendação:</b> chame um <b>técnico de portão eletrônico</b> — é um serviço rápido. Mostre esta mensagem a ele:</p>
-        <div className="rounded-xl bg-slate-50 p-4 font-mono text-xs leading-relaxed dark:bg-ink-850">
-          Ligar os contatos COM e NA do relé nos bornes de BOTOEIRA da central (BOT / PUL / START),
-          em paralelo com o botão/receptor. Contato seco, sem tensão. Alimentação: saída auxiliar
-          +12/24 V e GND da central (a mesma da fotocélula) → conversor DC-DC 12/24 V para 5 V USB
-          (mín. 1 A), dentro da caixa; cabo USB na placa. Não ligar 12/24 V direto no VIN.
-          Não ligar na rede 127/220 V do motor.
-        </div>
-        <p>Depois, cadastre o portão em <Link to="/dispositivos" className="text-brand-500 underline">Portões e dispositivos</Link> e
-          teste pelo app.</p>
-        <p className="text-xs text-slate-500">Para refazer a configuração da placa (trocar Wi-Fi, por exemplo): segure o botão <b>BOOT</b> por 5 segundos.</p>
-      </Step>
     </div>
   );
 }
