@@ -453,7 +453,10 @@ update devices set last_seen_at = now() where id = '00000000-0000-0000-0000-0000
 set role authenticated;
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', false);
 select set_config('request.jwt.claim.aal', 'aal1', false);
-select pg_temp.ok(is_super_admin(), 'super admin sem 2FA cadastrada tem todos os poderes');
+select pg_temp.ok(not is_super_admin(), 'super admin sem 2FA fica sem os poderes (2FA obrigatória para ele)');
+select pg_temp.ok((select count(*) = 0 from organizations where id = :'org_c'), 'super admin sem 2FA não vê clientes alheios');
+select set_config('request.jwt.claim.aal', 'aal2', false);
+select pg_temp.ok(is_super_admin(), 'super admin com o código do celular tem todos os poderes');
 select pg_temp.ok((select count(*) >= 1 from organizations where id = :'org_c'), 'super admin vê todos os clientes');
 select pg_temp.ok((select count(*) >= 1 from my_gates() where gate_id = :'gc' and can_operate), 'super admin vê e pode acionar portão de qualquer cliente');
 select pg_temp.ok((select (request_gate_command(:'gc', 'pulso'))->>'confirmacao' = 'necessaria'), 'super admin também precisa da senha de abertura');
@@ -599,4 +602,30 @@ select issue_unlock_ticket(:'MOR') as tbio3 \gset
 set role authenticated;
 select pg_temp.ok((select (set_gate_pin_biometric('5937', :'tbio3'))->>'ok' = 'false'), 'tíquete de outra pessoa não serve');
 reset role;
+-- ---------- 2FA: SUPER ADMIN OBRIGATÓRIA E LIBERAÇÃO PELO ADMINISTRADOR ----------
+reset role;
+delete from auth.mfa_factors;
+insert into auth.mfa_factors (user_id, status) values
+  ('00000000-0000-0000-0000-00000000000d', 'verified'),
+  ('00000000-0000-0000-0000-00000000000b', 'verified'),
+  ('00000000-0000-0000-0000-00000000000a', 'verified');
+set role authenticated;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', false);
+select set_config('request.jwt.claim.aal', 'aal1', false);
+select pg_temp.ok(not is_super_admin(), 'super admin com sessão sem código não tem poderes');
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000b', false);
+select set_config('request.jwt.claim.aal', 'aal2', false);
+select pg_temp.ok((select count(*) = 2 from org_mfa_status(:'org_c')), 'administrador vê quem usa 2FA no seu cliente');
+select pg_temp.ok((select (admin_reset_mfa('00000000-0000-0000-0000-00000000000b', :'org_c'))->>'ok' = 'false'), 'ninguém libera a própria 2FA');
+select pg_temp.ok((select (admin_reset_mfa('00000000-0000-0000-0000-00000000000a', :'org_c'))->>'ok' = 'false'), '2FA do dono da plataforma não sai pelo app');
+select pg_temp.ok((select (admin_reset_mfa('00000000-0000-0000-0000-00000000000d', :'org_c'))->>'ok' = 'true'), 'administrador libera a 2FA de morador que perdeu o celular');
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000e', false);
+select pg_temp.ok((select count(*) = 0 from org_mfa_status(:'org_c')), 'quem não é administrador não vê quem usa 2FA');
+select pg_temp.ok(pg_temp.erro($$select admin_reset_mfa('00000000-0000-0000-0000-00000000000b', '$$ || :'org_c' || $$')$$) is not null, 'usuário comum não libera 2FA de ninguém');
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', false);
+select pg_temp.ok((select (admin_reset_mfa('00000000-0000-0000-0000-00000000000b', :'org_c'))->>'ok' = 'true'), 'super admin libera a 2FA de um administrador');
+reset role;
+select pg_temp.ok((select count(*) = 1 from auth.mfa_factors), 'só a 2FA do super admin continua');
+select pg_temp.ok((select count(*) = 2 from audit_logs where action = 'conta.2fa_liberada_admin'), 'liberações de 2FA ficam na auditoria');
+delete from auth.mfa_factors;
 \echo TODOS_OS_TESTES_PASSARAM

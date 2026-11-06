@@ -53,16 +53,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [aal, setAal] = useState<{ current: string | null; next: string | null }>({ current: null, next: null });
 
   const loadUserData = useCallback(async (s: Session | null) => {
-    let strongSession = false;
+    let superSession = false;
     if (s) {
       try {
         const { data: lvl } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
         setAal({ current: lvl?.currentLevel ?? null, next: lvl?.nextLevel ?? null });
-        // Sessão válida: sem 2FA cadastrada, ou com 2FA já confirmada nesta sessão.
-        strongSession = !(lvl?.nextLevel === "aal2" && lvl?.currentLevel !== "aal2");
+        // Poderes de super admin só com o código do celular confirmado nesta sessão.
+        superSession = lvl?.currentLevel === "aal2";
       } catch {
         setAal({ current: "aal1", next: null });
-        strongSession = true;
       }
     } else {
       setAal({ current: null, next: null });
@@ -118,8 +117,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .map((r) => r.organizations!);
 
     // Super admin administra todas as organizações.
-    // Super admin administra tudo (se ativou 2FA, a sessão precisa estar confirmada).
-    if (prof?.is_super_admin && strongSession) {
+    // Super admin administra tudo, mas só com 2FA confirmada na sessão.
+    if (prof?.is_super_admin && superSession) {
       const all = await supabase.from("organizations").select("id, name, kind, group_label").order("name");
       orgs = (all.data ?? []) as AdminOrg[];
     }
@@ -153,8 +152,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<AuthState>(() => {
     const needsMfa = aal.next === "aal2" && aal.current !== "aal2";
-    const isSuper = !!profile?.is_super_admin && !needsMfa;
-    const superNeedsMfa = false;
+    const isSuper = !!profile?.is_super_admin && aal.current === "aal2";
+    // Super admin ainda sem 2FA cadastrada: precisa ativar para liberar os poderes.
+    const superNeedsMfa = !!profile?.is_super_admin && !isSuper && !needsMfa;
     const isAdmin = isSuper || adminOrgs.length > 0;
     const isTitular = memberships.some((m) => m.role === "titular" && m.status === "ativo");
     const roleLabel = isSuper ? "Super Admin" : isAdmin ? "Admin" : isTitular ? "Titular"

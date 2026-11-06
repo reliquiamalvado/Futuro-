@@ -5,7 +5,7 @@ import { useAuth } from "../lib/auth";
 import { supabase, type MemberRole, type MemberStatus } from "../lib/supabase";
 import { ROLE_LABEL, STATUS_LABEL, errMsg, fmtAgo, fmtDate, must, useLoad } from "../lib/util";
 import { Alert, Badge, Button, Card, Empty, Input, Loading, Modal, PageHeader, Select, Table, Td } from "../components/ui";
-import { PinResetButton, usePinStatus } from "../components/PinReset";
+import { MfaResetButton, PinResetButton, usePinStatus } from "../components/PinReset";
 
 export interface MemberFull {
   id: string;
@@ -262,12 +262,16 @@ export function ResidentsPage() {
                   <Td className="whitespace-nowrap text-slate-500">{fmtDate(m.approved_at ?? m.created_at)}</Td>
                   <Td className="text-right">
                     <div className="flex items-center justify-end gap-1">
-                      {admin && !self && m.residences && (
+                      {admin && !self && m.residences && (<>
                         <PinResetButton orgId={m.residences.org_id} userId={m.user_id} name={m.profiles?.full_name || m.profiles?.email || "esta pessoa"}
                           status={pins.get(m.residences.org_id, m.user_id)}
                           onError={(t) => { setOk(null); setError(t); }}
                           onDone={() => { setError(null); setOk(`Senha de abertura de ${m.profiles?.full_name || m.profiles?.email} liberada. Avise a pessoa para criar uma nova em Minha conta.`); pins.reload(); }} />
-                      )}
+                      <MfaResetButton orgId={m.residences.org_id} userId={m.user_id} name={m.profiles?.full_name || m.profiles?.email || "esta pessoa"}
+                        status={pins.get(m.residences.org_id, m.user_id)}
+                        onError={(t) => { setOk(null); setError(t); }}
+                        onDone={() => { setError(null); setOk(`Verificação em duas etapas de ${m.profiles?.full_name || m.profiles?.email} liberada.`); pins.reload(); }} />
+                      </>)}
                       <Link to={`/residencias/${m.residence_id}`} title="Abrir residência (permissões)">
                         <Button size="sm" variant="ghost"><ExternalLink className="size-4" /></Button>
                       </Link>

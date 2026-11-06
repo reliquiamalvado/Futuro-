@@ -4,7 +4,7 @@ import { useAuth } from "../lib/auth";
 import { supabase, type Profile } from "../lib/supabase";
 import { errMsg, fmtDate, must, useLoad } from "../lib/util";
 import { Alert, Badge, Button, Card, Empty, Field, Input, Loading, PageHeader, Select, Table, Td } from "../components/ui";
-import { PinResetButton, usePinStatus } from "../components/PinReset";
+import { MfaResetButton, PinResetButton, usePinStatus } from "../components/PinReset";
 
 interface AdminRow {
   org_id: string;
@@ -92,12 +92,16 @@ export default function AdminsPage() {
                 <Td className="whitespace-nowrap text-slate-500">{fmtDate(a.created_at)}</Td>
                 <Td className="text-right">
                   <div className="flex items-center justify-end gap-1">
-                  {canManage(a.org_id) && a.user_id !== profile?.id && (
+                  {canManage(a.org_id) && a.user_id !== profile?.id && (<>
                     <PinResetButton orgId={a.org_id} userId={a.user_id} name={a.profiles?.full_name || a.profiles?.email || "esta pessoa"}
                       status={pins.get(a.org_id, a.user_id)}
                       onError={(t) => { setOk(null); setError(t); }}
                       onDone={() => { setError(null); setOk(`Senha de abertura de ${a.profiles?.full_name || a.profiles?.email} liberada.`); pins.reload(); }} />
-                  )}
+                      <MfaResetButton orgId={a.org_id} userId={a.user_id} name={a.profiles?.full_name || a.profiles?.email || "esta pessoa"}
+                        status={pins.get(a.org_id, a.user_id)}
+                        onError={(t) => { setOk(null); setError(t); }}
+                        onDone={() => { setError(null); setOk(`Verificação em duas etapas de ${a.profiles?.full_name || a.profiles?.email} liberada.`); pins.reload(); }} />
+                  </>)}
                   {isSuper && (
                     <Button size="sm" variant="ghost" title="Remover" onClick={async () => {
                       if (!confirm(`Remover ${a.profiles?.email} da administração de ${a.organizations?.name}?`)) return;

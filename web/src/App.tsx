@@ -30,6 +30,7 @@ import { MfaVerifyPage } from "./pages/Mfa";
 import { UnlockProvider } from "./components/UnlockProvider";
 import LandingPage from "./pages/Landing";
 const PrivacyCenterPage = lazy(() => import("./pages/PrivacyCenter"));
+const Help2faPage = lazy(() => import("./pages/Help2fa"));
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const { session, loading, needsMfa } = useAuth();
@@ -89,6 +90,7 @@ export default function App() {
           <Route path="/privacidade" element={<PrivacyPage />} />
           <Route path="/termos" element={<TermsPage />} />
           <Route path="/sobre" element={<LandingPage />} />
+          <Route path="/ajuda/2fa" element={<Suspense fallback={<Loading />}><Help2faPage /></Suspense>} />
           <Route path="/bem-vindo" element={<Navigate to="/sobre" replace />} />
 
           <Route element={<RequireAuth><UnlockProvider><Layout /></UnlockProvider></RequireAuth>}>

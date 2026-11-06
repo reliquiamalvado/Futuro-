@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ShieldCheck, Smartphone, Trash2 } from "lucide-react";
 import type { Factor } from "@supabase/supabase-js";
 import { useAuth } from "../lib/auth";
@@ -62,7 +62,8 @@ export function MfaVerifyPage() {
           </button>
         </Card>
         <p className="mt-4 text-center text-xs text-slate-500">
-          Perdeu o acesso ao autenticador? Peça ao administrador da plataforma para redefinir sua verificação.
+          Perdeu o celular? Use o seu celular reserva ou peça ao administrador do seu condomínio ou empresa para liberar a sua conta.{" "}
+          <Link to="/ajuda/2fa" className="text-brand-500 underline">Ver ajuda</Link>
         </p>
       </div>
     </div>
@@ -94,7 +95,8 @@ export function TwoFactorCard() {
     // Remove tentativas antigas não concluídas.
     for (const f of factors.filter((f) => f.status !== "verified")) await supabase.auth.mfa.unenroll({ factorId: f.id });
     const { data, error } = await supabase.auth.mfa.enroll({
-      factorType: "totp", friendlyName: `AuggeControl ${new Date().toLocaleDateString("pt-BR")}`, issuer: "AuggeControl",
+      factorType: "totp", issuer: "AuggeControl",
+      friendlyName: `${verified.length ? "Reserva" : "Principal"} ${new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}`,
     });
     setLoading(false);
     if (error) return setError(errMsg(error));
@@ -117,7 +119,13 @@ export function TwoFactorCard() {
   }
 
   async function remove(f: Factor) {
-    if (!window.confirm("Desativar a verificação em duas etapas? Sua conta ficará protegida só pela senha.")) return;
+    const last = verified.length <= 1;
+    const msg = !last
+      ? `Remover o aparelho "${f.friendly_name || "Autenticador"}"? Os outros aparelhos cadastrados continuam valendo.`
+      : profile?.is_super_admin
+        ? "ATENÇÃO: sem a verificação em duas etapas, os seus poderes de Super Admin ficam BLOQUEADOS até você ativar de novo.\n\nDesativar mesmo assim?"
+        : "Desativar a verificação em duas etapas? Sua conta ficará protegida só pela senha.";
+    if (!window.confirm(msg)) return;
     setError(null);
     const { error } = await supabase.auth.mfa.unenroll({ factorId: f.id });
     if (error) return setError(errMsg(error));
@@ -134,7 +142,8 @@ export function TwoFactorCard() {
       </h2>
       <p className="mb-4 text-sm text-slate-500">
         Além da senha, pede um código do seu celular ao entrar. Mesmo que alguém descubra sua senha, não consegue abrir seus portões.
-        {profile?.is_super_admin && <b className="text-amber-600"> Muito recomendada para Super Admin, que tem acesso a todos os clientes.</b>}
+        {profile?.is_super_admin && <b className="text-amber-600"> Obrigatória para o Super Admin: sem ela, os poderes sobre todos os clientes ficam bloqueados.</b>}
+        {" "}<Link to="/ajuda/2fa" className="text-brand-500 underline">Ver passo a passo</Link>
       </p>
 
       {ok && <div className="mb-4"><Alert tone="green">{ok}</Alert></div>}
@@ -151,11 +160,21 @@ export function TwoFactorCard() {
         <Button onClick={start} loading={loading}>Ativar verificação em duas etapas</Button>
       )}
 
+      {verified.length === 1 && !enroll && (
+        <div className="rounded-xl border border-dashed border-slate-300 p-3 text-sm dark:border-white/15">
+          <p className="mb-2 text-slate-500">
+            <b className="text-slate-700 dark:text-slate-200">Recomendado:</b> cadastre um segundo aparelho (tablet ou outro celular).
+            Se perder este, você entra pelo reserva.
+          </p>
+          <Button size="sm" variant="secondary" onClick={start} loading={loading}><Smartphone className="size-4" /> Adicionar celular reserva</Button>
+        </div>
+      )}
+
       {enroll && (
         <form onSubmit={confirm} className="space-y-4">
           <ol className="list-decimal space-y-1 pl-5 text-sm text-slate-600 dark:text-slate-300">
-            <li>Instale um aplicativo autenticador (Google Authenticator, Microsoft Authenticator ou Authy).</li>
-            <li>No aplicativo, toque em <b>adicionar</b> e leia o QR Code abaixo.</li>
+            <li>Instale um aplicativo autenticador grátis (Google Authenticator ou Microsoft Authenticator).</li>
+            <li>No aplicativo, toque em <b>+</b> e leia o QR Code abaixo. <span className="text-slate-500">(No mesmo celular? Use “Copiar chave” e escolha “Inserir chave de configuração”.)</span></li>
             <li>Digite o código de 6 dígitos que aparecer.</li>
           </ol>
           <img src={enroll.qr} alt="QR Code para o aplicativo autenticador" className="mx-auto w-48 rounded-xl bg-white p-2" />
