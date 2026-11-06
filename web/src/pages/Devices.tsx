@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Activity, DoorClosed, Usb, KeyRound, Link2, Pencil, Plus, Power, RefreshCw, Trash2, Wifi, WifiOff } from "lucide-react";
+import { Activity, Cpu, DoorClosed, Usb, KeyRound, Link2, Pencil, Plus, Power, RefreshCw, Trash2, Wifi, WifiOff } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import {
   DEVICE_API_URL, isOnline, supabase, type Command, type Device, type DeviceDriver, type Gate, type GateMode,
@@ -72,16 +72,21 @@ export default function DevicesPage() {
         {(gates.data ?? []).some((g) => !g.device_id) && (
           <Card className="mb-4 ring-amber-300 dark:ring-amber-500/40">
             <div className="mb-2 flex items-center justify-between">
-              <span className="flex items-center gap-2 text-sm font-semibold"><DoorClosed className="size-4 text-amber-500" /> Portões sem equipamento</span>
+              <span className="flex items-center gap-2 text-sm font-semibold"><DoorClosed className="size-4 text-amber-500" /> Portões aguardando o ESP32</span>
               <Badge tone="amber">Não podem ser acionados ainda</Badge>
             </div>
             <ul className="divide-y divide-slate-100 dark:divide-ink-800">
               {(gates.data ?? []).filter((g) => !g.device_id).map((g) => (
-                <li key={g.id} className="flex items-center justify-between py-2 text-sm">
+                <li key={g.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
                   <span className="font-medium">{g.name}</span>
-                  <Button size="sm" variant="secondary" onClick={() => setGateEdit({ deviceId: null, gate: g })}>
-                    <Link2 className="size-4" /> {devices.data?.length ? "Vincular equipamento" : "Editar"}
-                  </Button>
+                  <span className="flex gap-1">
+                    <Button size="sm" variant="ghost" title="Editar portão" onClick={() => setGateEdit({ deviceId: null, gate: g })}>
+                      <Link2 className="size-4" /> {devices.data?.length ? "Vincular existente" : "Editar"}
+                    </Button>
+                    <Link to={`/instalar?portao=${g.id}`}>
+                      <Button size="sm"><Cpu className="size-4" /> Adicionar ESP32</Button>
+                    </Link>
+                  </span>
                 </li>
               ))}
             </ul>

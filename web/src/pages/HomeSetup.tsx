@@ -67,9 +67,13 @@ export default function HomeSetupPage() {
         used.add(r);
       }
     }
-    must(await supabase.from("gates").insert(valid.map((g) => ({
-      org_id: home!.org_id, device_id: device!.device_id, name: g.name.trim(), channel: g.channel, mode: g.mode,
-    }))).select());
+    // A casa já ganhou um portão automático (sem equipamento): o primeiro portão reaproveita ele.
+    const auto = must(await supabase.from("gates").select("id").eq("org_id", home!.org_id).is("device_id", null).limit(1)) as { id: string }[];
+    const [first, ...rest] = valid;
+    const row = (g: NewGate) => ({ org_id: home!.org_id, device_id: device!.device_id, name: g.name.trim(), channel: g.channel, mode: g.mode });
+    if (auto[0]) must(await supabase.from("gates").update(row(first)).eq("id", auto[0].id).select());
+    const toInsert = auto[0] ? rest : valid;
+    if (toInsert.length) must(await supabase.from("gates").insert(toInsert.map(row)).select());
     nav(`/instalar?dispositivo=${device!.device_id}`, { replace: true });
   });
 

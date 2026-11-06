@@ -628,4 +628,19 @@ reset role;
 select pg_temp.ok((select count(*) = 1 from auth.mfa_factors), 'só a 2FA do super admin continua');
 select pg_temp.ok((select count(*) = 2 from audit_logs where action = 'conta.2fa_liberada_admin'), 'liberações de 2FA ficam na auditoria');
 delete from auth.mfa_factors;
+-- ---------- RESIDÊNCIA NOVA JÁ GANHA O PORTÃO ----------
+set role authenticated;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000b', false);
+select set_config('request.jwt.claim.aal', 'aal2', false);
+insert into residences (org_id, name) values (:'org_c', 'Casa 77') returning id as r77 \gset
+select pg_temp.ok((select count(*) = 1 from gates g join gate_residences gr on gr.gate_id = g.id
+                    where gr.residence_id = :'r77' and g.name = 'Portão · Casa 77' and g.device_id is null),
+                  'residência nova já aparece com o seu portão, sem equipamento');
+select pg_temp.ok((select count(*) = 1 from gate_residences gr join gates g on g.id = gr.gate_id
+                    where g.name = 'Portão · Casa 77'), 'portão automático fica só na residência dele');
+select (create_home('Casa Auto')->>'residence_id') as rauto \gset
+select pg_temp.ok((select count(*) = 1 from gates g join gate_residences gr on gr.gate_id = g.id
+                    where gr.residence_id = :'rauto' and g.device_id is null), 'casa criada pelo assistente também ganha o portão');
+reset role;
+
 \echo TODOS_OS_TESTES_PASSARAM

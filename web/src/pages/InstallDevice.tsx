@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { CheckCircle2, Cpu, Laptop, Smartphone, Usb, Wifi, Wrench } from "lucide-react";
 import { useAuth } from "../lib/auth";
-import { isOnline, supabase, type Device } from "../lib/supabase";
+import { isOnline, supabase, type Device, type Gate } from "../lib/supabase";
 import { errMsg, must, useLoad } from "../lib/util";
 import { Alert, Badge, Button, Card, Field, Input, Loading, PageHeader, Select, Spinner, cx } from "../components/ui";
 
@@ -45,6 +45,29 @@ export default function InstallDevicePage() {
   const serialOk = typeof navigator !== "undefined" && "serial" in navigator;
 
   const devId = params.get("dispositivo") ?? "";
+  // Veio de "Adicionar ESP32" num portão: o equipamento novo já fica ligado a ele.
+  const gateId = params.get("portao") ?? "";
+  const gate = useLoad(async () =>
+    gateId ? (must(await supabase.from("gates").select("*").eq("id", gateId).maybeSingle()) as Gate | null) : null,
+  [gateId]);
+  useEffect(() => {
+    const g = gate.data;
+    if (!g) return;
+    if (g.org_id !== org && adminOrgs.some((o) => o.id === g.org_id)) setOrg(g.org_id);
+    setNewName(`Central · ${g.name.replace(/^Portão · /, "")}`.slice(0, 80));
+  }, [gate.data]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** Liga o portão escolhido ao equipamento, no primeiro relé livre. */
+  async function linkGate(deviceId: string) {
+    const g = gate.data;
+    if (!g || g.device_id) return;
+    const used = must(await supabase.from("gates").select("channel").eq("device_id", deviceId)) as { channel: number }[];
+    let ch = 1;
+    while (used.some((u) => u.channel === ch)) ch++;
+    must(await supabase.from("gates").update({ device_id: deviceId, channel: ch }).eq("id", g.id).select());
+    await gate.reload(true);
+  }
+  const keepGate = (extra: Record<string, string>) => (gateId ? { ...extra, portao: gateId } : extra);
   const devices = useLoad(async () =>
     org ? must(await supabase.from("devices").select("*").eq("org_id", org).order("created_at", { ascending: false })) as Device[] : [],
   [org]);
@@ -66,8 +89,9 @@ export default function InstallDevicePage() {
     setBusy(true); setError(null);
     try {
       const r = must(await supabase.rpc("create_device", { p_org: org, p_name: newName.trim(), p_driver: "dc-esp32-https" })) as { device_id: string };
+      await linkGate(r.device_id);
       await devices.reload(true);
-      setParams({ dispositivo: r.device_id });
+      setParams(keepGate({ dispositivo: r.device_id }));
       await generateCode(r.device_id);
     } catch (e) { setError(errMsg(e)); }
     finally { setBusy(false); }
@@ -88,6 +112,13 @@ export default function InstallDevicePage() {
       <PageHeader title="Instalar equipamento"
         subtitle="Passo a passo, sem programar nada. Leva uns 15 minutos (sem contar a ligação no portão)." />
       {error && <Alert>{error}</Alert>}
+      {gate.data && (
+        <Alert tone={gate.data.device_id ? "green" : "amber"}>
+          {gate.data.device_id
+            ? <>Equipamento ligado ao <b>{gate.data.name}</b>. Siga os passos para gravar e conectar a placa.</>
+            : <>Você está adicionando o ESP32 do <b>{gate.data.name}</b>. Ao cadastrar o equipamento no passo 3, ele já fica ligado a este portão.</>}
+        </Alert>
+      )}
 
       <Step n={1} title="O que comprar" icon={<Cpu className="size-4" />}>
         <p>Kit recomendado: funciona direto, sem solda e sem ajustar nada (as peças só se encaixam com 3 fios).</p>
@@ -138,7 +169,12 @@ export default function InstallDevicePage() {
           <div className="space-y-3">
             {(devices.data ?? []).length > 0 && (
               <Field label="Conectar um equipamento já cadastrado">
-                <Select value="" onChange={(e) => { setParams({ dispositivo: e.target.value }); setCode(null); }}>
+                <Select value="" onChange={async (e) => {
+                  const id = e.target.value;
+                  setCode(null);
+                  try { await linkGate(id); } catch (err) { setError(errMsg(err)); return; }
+                  setParams(keepGate({ dispositivo: id }));
+                }}>
                   <option value="">Escolha…</option>
                   {devices.data!.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
                 </Select>
@@ -153,7 +189,10 @@ export default function InstallDevicePage() {
           </div>
         ) : online ? (
           <Alert tone="green">
-            <b>{device.name}</b> está conectado e online! <Link to="/dispositivos" className="underline">Agora cadastre os portões dele</Link>.
+            <b>{device.name}</b> está conectado e online!{" "}
+            {gate.data?.device_id === device.id
+              ? <>O <b>{gate.data.name}</b> já está pronto para abrir pelo app. <Link to="/dispositivos" className="underline">Ver portões</Link>.</>
+              : <Link to="/dispositivos" className="underline">Agora cadastre os portões dele</Link>}
           </Alert>
         ) : !code ? (
           <div className="space-y-2">

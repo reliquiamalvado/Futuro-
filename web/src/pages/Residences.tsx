@@ -17,6 +17,7 @@ export default function ResidencesPage() {
   const [search, setSearch] = useState("");
   const [block, setBlock] = useState("");
   const [open, setOpen] = useState(false);
+  const [created, setCreated] = useState<{ name: string; gateId: string | null } | null>(null);
 
   const list = useLoad(async () => {
     let q = supabase.from("residences")
@@ -58,6 +59,14 @@ export default function ResidencesPage() {
         )}
       </div>
 
+      {created && (
+        <div className="mb-4">
+          <Alert tone="green">
+            <b>{created.name}</b> criada. O portão dela já está em <b>Portões e dispositivos</b>, pronto para adicionar o ESP32.{" "}
+            <Link to={created.gateId ? `/instalar?portao=${created.gateId}` : "/dispositivos"} className="font-semibold underline">Adicionar ESP32 agora</Link>
+          </Alert>
+        </div>
+      )}
       {list.loading ? <Loading /> : list.error ? <Alert>{list.error}</Alert> : rows.length === 0 ? (
         <Empty icon={<Home className="size-8" />} title="Nenhuma residência">
           {isAdmin ? "Cadastre a primeira residência para começar a convidar moradores." : null}
@@ -99,13 +108,13 @@ export default function ResidencesPage() {
         </div>
       )}
 
-      <NewResidenceModal open={open} knownBlocks={blocks} onClose={() => setOpen(false)} onSaved={() => { setOpen(false); list.reload(); }} />
+      <NewResidenceModal open={open} knownBlocks={blocks} onClose={() => setOpen(false)} onSaved={(c) => { setOpen(false); setCreated(c); list.reload(); }} />
     </div>
   );
 }
 
 function NewResidenceModal({ open, onClose, onSaved, knownBlocks }: {
-  open: boolean; onClose: () => void; onSaved: () => void; knownBlocks: string[];
+  open: boolean; onClose: () => void; onSaved: (c: { name: string; gateId: string | null }) => void; knownBlocks: string[];
 }) {
   const { adminOrgs } = useAuth();
   const [org, setOrg] = useState("");
@@ -122,12 +131,14 @@ function NewResidenceModal({ open, onClose, onSaved, knownBlocks }: {
     setLoading(true);
     setError(null);
     try {
-      must(await supabase.from("residences").insert({
+      const res = must(await supabase.from("residences").insert({
         org_id: org || adminOrgs[0]?.id, name: name.trim(), block: blockName.trim() || null,
         address: address.trim() || null, complement: complement.trim() || null,
-      }).select().single());
+      }).select().single()) as Residence;
+      // O banco cria o portão da residência automaticamente.
+      const { data: link } = await supabase.from("gate_residences").select("gate_id").eq("residence_id", res.id).limit(1);
       setName(""); setBlockName(""); setAddress(""); setComplement("");
-      onSaved();
+      onSaved({ name: res.name, gateId: (link?.[0] as { gate_id: string } | undefined)?.gate_id ?? null });
     } catch (err) {
       setError(errMsg(err));
     } finally {
