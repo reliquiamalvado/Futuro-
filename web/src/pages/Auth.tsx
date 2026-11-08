@@ -1,4 +1,5 @@
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useRef, useState, type FormEvent, type ReactNode } from "react";
+import { Captcha, captchaOpt, captchaPending, type CaptchaHandle } from "../components/Captcha";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { supabase, type AccountType } from "../lib/supabase";
 import { PROFILE_LABEL, ProfileChooser, nextPathFor } from "../components/ProfileChooser";
@@ -94,13 +95,17 @@ export function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [captcha, setCaptcha] = useState<string | null>(null);
+  const captchaRef = useRef<CaptchaHandle>(null);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
+    if (captchaPending(captcha)) return setError("Aguarde a verificação de segurança terminar.");
     setLoading(true);
     setError(null);
-    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password, options: captchaOpt(captcha) });
     setLoading(false);
+    captchaRef.current?.reset();
     if (error) return setError(errMsg(error));
     nav(from, { replace: true });
   }
@@ -118,6 +123,7 @@ export function LoginPage() {
         <Field label="Senha">
           <Input type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
         </Field>
+        <Captcha ref={captchaRef} onToken={setCaptcha} />
         {error && <Alert>{error}</Alert>}
         <Button type="submit" className="w-full" loading={loading}>Entrar</Button>
       </form>
@@ -148,6 +154,8 @@ export function SignupPage() {
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [captcha, setCaptcha] = useState<string | null>(null);
+  const captchaRef = useRef<CaptchaHandle>(null);
   const nav = useNavigate();
 
   // Quem veio por um link de convite já sabe o caminho.
@@ -164,14 +172,16 @@ export function SignupPage() {
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (password.length < 8) return setError("A senha deve ter pelo menos 8 caracteres.");
+    if (captchaPending(captcha)) return setError("Aguarde a verificação de segurança terminar.");
     setLoading(true);
     setError(null);
     const { data, error } = await supabase.auth.signUp({
       email: email.trim(),
       password,
-      options: { data: { full_name: name.trim(), account_type: type }, emailRedirectTo: window.location.origin + target },
+      options: { data: { full_name: name.trim(), account_type: type }, emailRedirectTo: window.location.origin + target, ...captchaOpt(captcha) },
     });
     setLoading(false);
+    captchaRef.current?.reset();
     if (error) return setError(errMsg(error));
     if (data.session) nav(target, { replace: true });
     else setDone(true);
@@ -215,6 +225,7 @@ export function SignupPage() {
         <Field label="Senha" hint="Mínimo de 8 caracteres.">
           <Input type="password" autoComplete="new-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
         </Field>
+        <Captcha ref={captchaRef} onToken={setCaptcha} />
         {error && <Alert>{error}</Alert>}
         <Button type="submit" className="w-full" loading={loading}>Criar conta</Button>
       </form>
@@ -230,15 +241,19 @@ export function ForgotPasswordPage() {
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [captcha, setCaptcha] = useState<string | null>(null);
+  const captchaRef = useRef<CaptchaHandle>(null);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
+    if (captchaPending(captcha)) return setError("Aguarde a verificação de segurança terminar.");
     setLoading(true);
     setError(null);
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: window.location.origin + "/redefinir-senha",
+      redirectTo: window.location.origin + "/redefinir-senha", ...captchaOpt(captcha),
     });
     setLoading(false);
+    captchaRef.current?.reset();
     if (error) return setError(errMsg(error));
     setSent(true);
   }
@@ -252,6 +267,7 @@ export function ForgotPasswordPage() {
           <Field label="E-mail">
             <Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
           </Field>
+          <Captcha ref={captchaRef} onToken={setCaptcha} />
           {error && <Alert>{error}</Alert>}
           <Button type="submit" className="w-full" loading={loading}>Enviar link</Button>
         </form>

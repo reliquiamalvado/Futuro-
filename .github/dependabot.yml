@@ -1,0 +1,11 @@
+# Avisa (com um pull request) quando alguma biblioteca do app ou do GitHub Actions
+# tiver atualização ou correção de segurança.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /web
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: monthly }
