@@ -134,7 +134,7 @@ export function LoginPage() {
         <p className="text-sm text-slate-500">Ainda não tem conta?</p>
         <Link to="/cadastro" state={loc.state}
           className="mt-2 inline-flex w-full items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 dark:bg-white dark:text-ink-950 dark:hover:bg-slate-200">
-          Criar conta grátis
+          Criar conta
         </Link>
       </div>
       <Link to="/sobre" className="mt-4 flex items-center justify-center gap-1.5 text-sm font-medium text-slate-500 hover:text-brand-500">
