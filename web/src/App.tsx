@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from "./lib/auth";
 import { Loading } from "./components/ui";
 import { safePath } from "./lib/util";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { UpdateBanner } from "./components/UpdateBanner";
 import Layout from "./components/Layout";
 import { ForgotPasswordPage, LinkErrorPage, LoginPage, ResetPasswordPage, SignupPage } from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
@@ -77,6 +78,7 @@ function MfaGate() {
 export default function App() {
   return (
     <BrowserRouter>
+      <UpdateBanner />
       <ErrorBoundary>
       <AuthProvider>
         <Routes>
