@@ -22,7 +22,7 @@
   },
   "devDependencies": {
     "@simplewebauthn/server": "^14.0.3",
-    "@tailwindcss/vite": "^4.1.11",
+    "@tailwindcss/vite": "^4.3.4",
     "@types/qrcode": "^1.5.5",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
