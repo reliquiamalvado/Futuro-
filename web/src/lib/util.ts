@@ -1,18 +1,33 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
+// Mensagens do servidor (em inglês) traduzidas para o português, em linguagem simples.
+const ERROS: [RegExp, string][] = [
+  [/invalid login credentials/i, "E-mail ou senha incorretos."],
+  [/email not confirmed/i, "Confirme seu e-mail antes de entrar. Procure o e-mail do AuggeControl (veja também o spam)."],
+  [/user already registered|already been registered/i, "Este e-mail já está cadastrado. Tente entrar ou use “Esqueci a senha”."],
+  [/known to be weak|pwned|leaked/i, "Esta senha é muito conhecida ou já vazou na internet. Escolha outra."],
+  [/should be different from the old password/i, "A nova senha precisa ser diferente da atual."],
+  [/password should be|password is too short|weak password/i, "A senha deve ter pelo menos 8 caracteres."],
+  [/captcha/i, "A verificação de segurança não terminou. Aguarde aparecer “Sucesso” na caixinha e tente de novo."],
+  [/for security purposes, you can only request this after/i, "Por segurança, aguarde alguns segundos antes de pedir de novo."],
+  [/rate limit|too many requests/i, "Muitas tentativas. Aguarde alguns minutos."],
+  [/unable to validate email|invalid format|email address .* is invalid/i, "Este e-mail não parece válido. Confira se digitou certo."],
+  [/signups? not allowed|signup is disabled/i, "Novos cadastros estão desativados no momento."],
+  [/invalid totp|invalid mfa|mfa .*invalid/i, "Código incorreto. Digite o código que aparece agora no aplicativo autenticador."],
+  [/token has expired|otp_expired|link is invalid or has expired/i, "Este link ou código expirou. Peça um novo."],
+  [/jwt expired|session.*(missing|not found)|refresh token/i, "Sua sessão expirou. Entre novamente."],
+  [/failed to fetch|networkerror|load failed|network request failed/i, "Sem conexão com o servidor. Confira a internet e tente de novo."],
+  [/timeout|timed out/i, "O servidor demorou para responder. Tente de novo."],
+  [/duplicate key/i, "Já existe um registro com esses dados."],
+  [/row-level security|permission denied/i,
+    "Você não tem permissão para isso. Se você é administrador, confira se a verificação em duas etapas está ativa em Minha conta."],
+];
+
 export function errMsg(e: unknown): string {
   if (!e) return "Erro desconhecido.";
   if (typeof e === "string") return e;
   const m = (e as { message?: string }).message ?? String(e);
-  if (m.includes("Invalid login credentials")) return "E-mail ou senha incorretos.";
-  if (m.includes("Email not confirmed")) return "Confirme seu e-mail antes de entrar.";
-  if (m.includes("User already registered")) return "Este e-mail já está cadastrado.";
-  if (m.includes("Password should be")) return "A senha deve ter pelo menos 8 caracteres.";
-  if (m.includes("rate limit")) return "Muitas tentativas. Aguarde alguns minutos.";
-  if (m.includes("Failed to fetch")) return "Sem conexão com o servidor.";
-  if (m.includes("duplicate key")) return "Já existe um registro com esses dados.";
-  if (m.includes("row-level security") || m.includes("permission denied"))
-    return "Você não tem permissão para isso. Se você é administrador, confira se a verificação em duas etapas está ativa em Minha conta.";
+  for (const [re, txt] of ERROS) if (re.test(m)) return txt;
   return m;
 }
 
