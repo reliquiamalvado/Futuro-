@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { ArrowDownToLine, ArrowUpFromLine, CheckCircle2, Power, Wifi, WifiOff, XCircle } from "lucide-react";
+import { Link } from "react-router-dom";
+import { ArrowDownToLine, ArrowUpFromLine, CheckCircle2, Cpu, Power, Wifi, WifiOff, XCircle } from "lucide-react";
 import type { CommandStatus, GateAction, GateMode, GateState } from "../lib/supabase";
 import { STATE_LABEL, errMsg, fmtAgo } from "../lib/util";
 import { CancelledError } from "../lib/unlock";
@@ -17,6 +18,8 @@ export interface GateView {
   canOperate: boolean;
   /** Portão cadastrado sem equipamento vinculado. */
   noDevice?: boolean;
+  /** Para quem administra o local: link para instalar o ESP32 deste portão. */
+  setupHref?: string;
 }
 
 type Phase = { kind: "idle" } | { kind: "busy"; action: GateAction } | { kind: "ok" } | { kind: "err"; msg: string };
@@ -103,7 +106,24 @@ export function GateCard({ gate, send, status, onDone }: {
         <Badge tone={stateTone} dot>{STATE_LABEL[gate.state]}</Badge>
       </div>
 
-      {gate.mode === "abrir_fechar" ? (
+      {gate.noDevice ? (
+        <div className="rounded-2xl border border-dashed border-amber-300 bg-amber-50/60 p-4 text-sm dark:border-amber-500/30 dark:bg-amber-500/5">
+          <p className="flex items-center gap-2 font-medium text-amber-800 dark:text-amber-200">
+            <Cpu className="size-4 shrink-0" /> Este portão ainda não tem o ESP32.
+          </p>
+          {gate.setupHref ? (
+            <>
+              <p className="mt-1 text-slate-600 dark:text-slate-300">Instale e conecte o equipamento para abrir pelo app.</p>
+              <Link to={gate.setupHref}
+                className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand-500 px-4 py-2.5 font-semibold text-white hover:bg-brand-600">
+                <Cpu className="size-4" /> Adicionar ESP32
+              </Link>
+            </>
+          ) : (
+            <p className="mt-1 text-slate-600 dark:text-slate-300">Assim que o administrador instalar o equipamento, você poderá abrir por aqui.</p>
+          )}
+        </div>
+      ) : gate.mode === "abrir_fechar" ? (
         <div className="flex gap-3">
           <ActionBtn action="abrir" label="Abrir" icon={<ArrowUpFromLine className="size-6" />} cls="bg-emerald-600 hover:bg-emerald-700" />
           <ActionBtn action="fechar" label="Fechar" icon={<ArrowDownToLine className="size-6" />} cls="bg-red-600 hover:bg-red-700" />
@@ -126,9 +146,9 @@ export function GateCard({ gate, send, status, onDone }: {
             <XCircle className="size-4" /> {phase.msg}
           </span>
         )}
-        {phase.kind === "idle" && (gate.deviceName || gate.lastSeen || gate.noDevice) && (
+        {phase.kind === "idle" && !gate.noDevice && (gate.deviceName || gate.lastSeen) && (
           <span className="text-xs text-slate-400">
-            {gate.noDevice ? "Aguardando o equipamento ser vinculado · " : gate.deviceName ? `${gate.deviceName} · ` : ""}
+            {gate.deviceName ? `${gate.deviceName} · ` : ""}
             {gate.online ? `visto ${fmtAgo(gate.lastSeen)}` : `última conexão: ${fmtAgo(gate.lastSeen)}`}
             {!gate.canOperate && " · sem permissão de acionamento"}
           </span>

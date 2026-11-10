@@ -22,7 +22,7 @@ export async function commandStatus(id: string) {
 type RecentCmd = Command & { gates: { name: string } | null; profiles: { full_name: string | null; email: string | null } | null };
 
 export default function Dashboard() {
-  const { profile, memberships, isAdmin, isTitular, adminOrgs, homeOnly, superNeedsMfa } = useAuth();
+  const { profile, memberships, isAdmin, isTitular, isSuper, adminOrgs, homeOnly, superNeedsMfa } = useAuth();
   const confirmedCommand = useConfirmedGateCommand();
 
   const gates = useLoad(async () => must(await supabase.rpc("my_gates")) as MyGate[]);
@@ -185,6 +185,7 @@ export default function Dashboard() {
                   id: g.gate_id, name: g.gate_name, mode: g.mode, state: g.state, online: g.online,
                   lastSeen: g.last_seen_at, deviceName: g.device_name ?? undefined, canOperate: g.can_operate,
                   noDevice: !g.device_id,
+                  setupHref: !g.device_id && (isSuper || adminOrgs.some((o) => o.id === g.org_id)) ? `/instalar?portao=${g.gate_id}` : undefined,
                   subtitle: [...new Set([g.residence_name, g.org_name].filter(Boolean))].join(" · "),
                 }}
                 send={(a) => confirmedCommand(g.gate_id, g.gate_name, a)}
