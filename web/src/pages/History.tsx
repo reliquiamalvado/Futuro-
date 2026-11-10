@@ -41,7 +41,7 @@ export default function HistoryPage() {
     const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
     const csv = [head.join(";"), ...rows.map((r) => [
       fmtDate(r.created_at), r.gates?.name, r.residences?.name, ACTION_LABEL[r.action],
-      r.source === "chave_temporaria" ? `Chave: ${r.temp_keys?.label ?? ""}` : "App",
+      r.source === "chave_temporaria" ? `Chave: ${r.temp_keys?.label ?? ""}` : r.source === "manual" ? "Controle (fora do app)" : "App",
       r.profiles?.full_name || r.profiles?.email, CMD_LABEL[r.status], r.error,
     ].map(esc).join(";"))].join("\n");
     const url = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" }));
@@ -108,7 +108,9 @@ export default function HistoryPage() {
                 <Td>
                   {r.source === "chave_temporaria"
                     ? <Badge tone="blue">Chave: {r.temp_keys?.label ?? "—"}</Badge>
-                    : r.profiles?.full_name || r.profiles?.email || "Usuário"}
+                    : r.source === "manual"
+                      ? <Badge tone="amber">Controle / fora do app</Badge>
+                      : r.profiles?.full_name || r.profiles?.email || "Usuário"}
                 </Td>
                 <Td>
                   <Badge tone={r.status === "sucesso" ? "green" : r.status === "falha" || r.status === "expirado" ? "red" : "amber"}>

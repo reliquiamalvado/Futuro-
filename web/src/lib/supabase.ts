@@ -161,7 +161,7 @@ export interface Command {
   residence_id: string | null;
   action: GateAction;
   status: CommandStatus;
-  source: "app" | "chave_temporaria";
+  source: "app" | "chave_temporaria" | "manual";
   requested_by: string | null;
   temp_key_id: string | null;
   error: string | null;

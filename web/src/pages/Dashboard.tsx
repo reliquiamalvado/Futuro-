@@ -214,7 +214,7 @@ export default function Dashboard() {
                     <div className="min-w-0">
                       <div className="truncate font-medium">{ACTION_LABEL[c.action]} · {c.gates?.name ?? "Portão"}</div>
                       <div className="truncate text-xs text-slate-500">
-                        {c.source === "chave_temporaria" ? "Chave temporária" : c.profiles?.full_name || c.profiles?.email || "Usuário"} · {fmtAgo(c.created_at)}
+                        {c.source === "chave_temporaria" ? "Chave temporária" : c.source === "manual" ? "Controle (fora do app)" : c.profiles?.full_name || c.profiles?.email || "Usuário"} · {fmtAgo(c.created_at)}
                       </div>
                     </div>
                   </div>

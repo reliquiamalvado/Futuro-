@@ -661,4 +661,27 @@ select pg_temp.ok(pg_temp.erro(format($$update organizations set kind = 'condomi
                   'super admin pode mudar o tipo do cliente');
 reset role;
 
+-- ---------- ABERTURA PELO CONTROLE (FORA DO APP) ----------
+reset role;
+insert into organizations (id, name, kind) values ('00000000-0000-0000-0000-0000000000f1', 'Casa Sensor', 'residencial');
+insert into residences (id, org_id, name) values ('00000000-0000-0000-0000-0000000000f2', '00000000-0000-0000-0000-0000000000f1', 'Casa Sensor');
+insert into devices (id, org_id, name, driver_id) values ('00000000-0000-0000-0000-0000000000f3', '00000000-0000-0000-0000-0000000000f1', 'Central', 'dc-esp32-https');
+update gates set device_id = '00000000-0000-0000-0000-0000000000f3', state = 'fechado'
+ where org_id = '00000000-0000-0000-0000-0000000000f1' returning id as gsens \gset
+select device_set_states('00000000-0000-0000-0000-0000000000f3', '{"1":"aberto"}');
+select pg_temp.ok((select count(*) = 1 from commands where gate_id = :'gsens' and source = 'manual' and action = 'abrir'
+                    and residence_id = '00000000-0000-0000-0000-0000000000f2'),
+                  'abertura pelo controle aparece no histórico (e para o titular da casa)');
+select device_set_states('00000000-0000-0000-0000-0000000000f3', '{"1":"fechado"}');
+select pg_temp.ok((select count(*) = 1 from commands where gate_id = :'gsens' and source = 'manual'),
+                  'fechar não cria registro de abertura');
+insert into commands (org_id, gate_id, device_id, action, status, source)
+values ('00000000-0000-0000-0000-0000000000f1', :'gsens', '00000000-0000-0000-0000-0000000000f3', 'pulso', 'sucesso', 'app');
+select device_set_states('00000000-0000-0000-0000-0000000000f3', '{"1":"aberto"}');
+select pg_temp.ok((select count(*) = 1 from commands where gate_id = :'gsens' and source = 'manual'),
+                  'abertura pelo app não vira "controle" duplicado');
+select device_set_states('00000000-0000-0000-0000-0000000000f3', '{"1":"aberto"}');
+select pg_temp.ok((select count(*) = 1 from commands where gate_id = :'gsens' and source = 'manual'),
+                  'estado repetido não duplica o registro');
+
 \echo TODOS_OS_TESTES_PASSARAM
