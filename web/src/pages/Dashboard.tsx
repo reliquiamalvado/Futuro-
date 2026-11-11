@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Activity, Cpu, DoorClosed, Home, KeyRound, Megaphone, ShieldAlert, Ticket, UserCheck, Wifi } from "lucide-react";
 import { useAuth } from "../lib/auth";
@@ -69,6 +69,20 @@ export default function Dashboard() {
     const t = setInterval(() => { if (!document.hidden) { gates.reload(true); } }, 5000);
     return () => clearInterval(t);
   }, [gates.reload]);
+
+  // Quando algum portão muda de estado (ex.: aberto pelo controle remoto), atualiza também
+  // os "Últimos acionamentos"; e, de qualquer forma, a cada 30 s com a tela aberta.
+  const gateStates = (gates.data ?? []).map((g) => `${g.gate_id}:${g.state}`).join("|");
+  const lastStates = useRef<string | null>(null);
+  useEffect(() => {
+    if (!gateStates) return;
+    if (lastStates.current !== null && lastStates.current !== gateStates) recent.reload(true);
+    lastStates.current = gateStates;
+  }, [gateStates]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const t = setInterval(() => { if (!document.hidden) recent.reload(true); }, 30_000);
+    return () => clearInterval(t);
+  }, [recent.reload]);
 
   const pendingMine = memberships.filter((m) => m.status === "pendente");
   const blockedMine = memberships.filter((m) => m.status === "bloqueado");
