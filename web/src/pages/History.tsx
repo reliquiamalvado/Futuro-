@@ -15,6 +15,7 @@ const PAGE = 50;
 
 export default function HistoryPage() {
   const [status, setStatus] = useState("");
+  const [source, setSource] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [limit, setLimit] = useState(PAGE);
@@ -26,10 +27,11 @@ export default function HistoryPage() {
       .order("created_at", { ascending: false })
       .limit(limit);
     if (status) q = q.eq("status", status);
+    if (source) q = q.eq("source", source);
     if (from) q = q.gte("created_at", new Date(from + "T00:00:00").toISOString());
     if (to) q = q.lte("created_at", new Date(to + "T23:59:59").toISOString());
     return must(await q) as unknown as Row[];
-  }, [status, from, to, limit]);
+  }, [status, source, from, to, limit]);
 
   const gates = useLoad(async () =>
     must(await supabase.from("gates").select("*, devices(name, last_seen_at)").order("name")) as unknown as
@@ -62,17 +64,18 @@ export default function HistoryPage() {
           <h2 className="mb-3 text-sm font-semibold">Estado atual dos portões</h2>
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {gates.data!.map((g) => {
-              const online = isOnline(g.devices?.last_seen_at ?? null);
+              const semEsp = !g.device_id;
+              const online = !semEsp && isOnline(g.devices?.last_seen_at ?? null);
               return (
                 <div key={g.id} className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2 text-sm dark:bg-ink-850">
                   <div className="min-w-0">
                     <div className="truncate font-medium">{g.name}</div>
                     <div className="truncate text-xs text-slate-500">
-                      {g.devices?.name} · {online ? "online" : `offline (${fmtAgo(g.devices?.last_seen_at)})`}
+                      {semEsp ? "Aguardando o ESP32" : <>{g.devices?.name} · {online ? "online" : `offline (${fmtAgo(g.devices?.last_seen_at)})`}</>}
                     </div>
                   </div>
-                  <Badge tone={!online ? "red" : g.state === "aberto" ? "green" : g.state === "fechado" ? "gray" : g.state === "movendo" ? "amber" : "gray"} dot>
-                    {online ? STATE_LABEL[g.state] : "Offline"}
+                  <Badge tone={semEsp ? "amber" : !online ? "red" : g.state === "aberto" ? "green" : g.state === "fechado" ? "gray" : g.state === "movendo" ? "amber" : "gray"} dot>
+                    {semEsp ? "Sem ESP32" : online ? STATE_LABEL[g.state] : "Offline"}
                   </Badge>
                 </div>
               );
@@ -81,7 +84,15 @@ export default function HistoryPage() {
         </Card>
       )}
 
-      <Card className="mb-4 grid gap-3 sm:grid-cols-3">
+      <Card className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Field label="Origem">
+          <Select value={source} onChange={(e) => setSource(e.target.value)}>
+            <option value="">Todas</option>
+            <option value="app">Pelo app</option>
+            <option value="chave_temporaria">Chave de visitante</option>
+            <option value="manual">Controle (fora do app)</option>
+          </Select>
+        </Field>
         <Field label="Resultado">
           <Select value={status} onChange={(e) => setStatus(e.target.value)}>
             <option value="">Todos</option>
